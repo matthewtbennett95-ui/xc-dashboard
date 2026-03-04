@@ -1,11 +1,10 @@
 import streamlit as st
 import pandas as pd
+from streamlit_gsheets import GSheetsConnection
 
-# --- PAGE SETUP ---
+# --- PAGE SETUP & CSS ---
 st.set_page_config(page_title="MCXC Team Dashboard", layout="centered")
 
-# --- CUSTOM CSS FOR SCHOOL COLORS ---
-# This adds a sleek color bar at the top with your school colors
 st.markdown("""
     <style>
         .color-bar {
@@ -18,10 +17,30 @@ st.markdown("""
     <div class="color-bar"></div>
 """, unsafe_allow_html=True)
 
-# --- MOCK DATA ---
-MOCK_USERS = {"runner1": "xc2026", "fastkid": "pace123"}
+# --- TIME MATH FUNCTIONS ---
+def time_to_seconds(time_str):
+    if pd.isna(time_str) or time_str == "" or ":" not in str(time_str):
+        return 0
+    parts = str(time_str).split(':')
+    return int(parts[0]) * 60 + float(parts[1])
 
-# --- SESSION STATE INITIALIZATION ---
+def seconds_to_time(seconds):
+    if seconds <= 0:
+        return ""
+    mins = int(seconds // 60)
+    secs = int(seconds % 60)
+    return f"{mins}:{secs:02d}"
+
+# --- SECURE DATABASE CONNECTION ---
+# This tells Streamlit to log into Google Sheets using our hidden secrets
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+# Read the tabs from the Google Sheet
+# ttl=0 means the app fetches fresh data every time, so you see updates instantly
+roster_data = conn.read(worksheet="Roster", ttl=0)
+races_data = conn.read(worksheet="Races", ttl=0)
+
+# --- SESSION STATE ---
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
     st.session_state["username"] = ""
@@ -41,42 +60,57 @@ def login_page():
         submit_button = st.form_submit_button("Log In")
         
         if submit_button:
-            if username in MOCK_USERS and MOCK_USERS[username] == password:
-                st.session_state["logged_in"] = True
-                st.session_state["username"] = username
-                st.rerun()
+            # Check if the username exists in the Roster sheet
+            user_row = roster_data[roster_data["Username"] == username]
+            
+            if not user_row.empty:
+                # Get the correct password from the sheet
+                correct_password = str(user_row.iloc[0]["Password"])
+                
+                if password == correct_password:
+                    st.session_state["logged_in"] = True
+                    st.session_state["username"] = username
+                    st.rerun()
+                else:
+                    st.error("Incorrect password. Please try again.")
             else:
-                st.error("Incorrect username or password. Please try again.")
+                st.error("Username not found.")
 
 # --- HOME PAGE (DASHBOARD) ---
 def home_page():
     st.title(f"Athlete: {st.session_state['username'].upper()}")
     st.button("Log Out", on_click=logout)
-    
     st.markdown("---")
     
-    # Section 1: Suggested Paces & Quick Stats
-    st.header("Today's Target")
+    st.header("Race Results & Analytics")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric(label="Current 5K PR", value="16:45", delta="-0:12")
-    with col2:
-        st.metric(label="Suggested Interval Pace (400m)", value="72s")
+    # Filter the races for ONLY the logged-in user
+    user_races = races_data[races_data["Username"] == st.session_state["username"]].copy()
+    
+    # If they have race data, calculate the math and display it
+    if not user_races.empty:
+        def calculate_avg_pace(row):
+            total_sec = time_to_seconds(row["Total_Time"])
+            distance_mi = 3.10686 if str(row["Distance"]).upper() == "5K" else 2.0
+            if total_sec == 0: return ""
+            return seconds_to_time(total_sec / distance_mi)
+            
+        def calculate_kick(row):
+            total_sec = time_to_seconds(row["Total_Time"])
+            m1_sec = time_to_seconds(row["Mile_1"])
+            m2_sec = time_to_seconds(row["Mile_2"])
+            if total_sec == 0: return ""
+            return seconds_to_time(total_sec - (m1_sec + m2_sec))
+            
+        user_races["Avg_Pace"] = user_races.apply(calculate_avg_pace, axis=1)
+        user_races["Final_Kick"] = user_races.apply(calculate_kick, axis=1)
         
-    st.markdown("---")
-    
-    # Section 2: Recent Workouts
-    st.header("Recent Workouts")
-    
-    workout_data = pd.DataFrame({
-        "Date": ["Oct 10", "Oct 12", "Oct 15"],
-        "Workout": ["6x800m", "4 Mile Tempo", "8x400m"],
-        "Weather": ["65°F, Sunny", "55°F, Rain", "60°F, Overcast"],
-        "Avg Split": ["2:25", "5:45/mi", "71s"]
-    })
-    
-    st.dataframe(workout_data, hide_index=True, use_container_width=True)
+        display_cols = ["Date", "Meet_Name", "Distance", "Mile_1", "Mile_2", "Final_Kick", "Total_Time", "Avg_Pace"]
+        
+        # Display the table
+        st.dataframe(user_races[display_cols], hide_index=True, use_container_width=True)
+    else:
+        st.info("No race data found yet for this season.")
 
 # --- MAIN APP LOGIC ---
 if not st.session_state["logged_in"]:

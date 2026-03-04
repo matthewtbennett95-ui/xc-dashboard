@@ -3,6 +3,7 @@ import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 
 # --- PAGE SETUP & CSS ---
+# Removed any remaining emojis to keep it purely professional
 st.set_page_config(page_title="MCXC Team Dashboard", layout="centered")
 
 st.markdown("""
@@ -32,11 +33,7 @@ def seconds_to_time(seconds):
     return f"{mins}:{secs:02d}"
 
 # --- SECURE DATABASE CONNECTION ---
-# This tells Streamlit to log into Google Sheets using our hidden secrets
 conn = st.connection("gsheets", type=GSheetsConnection)
-
-# Read the tabs from the Google Sheet
-# ttl=0 means the app fetches fresh data every time, so you see updates instantly
 roster_data = conn.read(worksheet="Roster", ttl=0)
 races_data = conn.read(worksheet="Races", ttl=0)
 
@@ -44,10 +41,16 @@ races_data = conn.read(worksheet="Races", ttl=0)
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
     st.session_state["username"] = ""
+    st.session_state["first_name"] = ""
+    st.session_state["last_name"] = ""
+    st.session_state["role"] = ""
 
 def logout():
     st.session_state["logged_in"] = False
     st.session_state["username"] = ""
+    st.session_state["first_name"] = ""
+    st.session_state["last_name"] = ""
+    st.session_state["role"] = ""
 
 # --- LOGIN PAGE ---
 def login_page():
@@ -60,16 +63,18 @@ def login_page():
         submit_button = st.form_submit_button("Log In")
         
         if submit_button:
-            # Check if the username exists in the Roster sheet
             user_row = roster_data[roster_data["Username"] == username]
             
             if not user_row.empty:
-                # Get the correct password from the sheet
                 correct_password = str(user_row.iloc[0]["Password"])
                 
                 if password == correct_password:
+                    # Save all user info into session state
                     st.session_state["logged_in"] = True
                     st.session_state["username"] = username
+                    st.session_state["first_name"] = user_row.iloc[0]["First_Name"]
+                    st.session_state["last_name"] = user_row.iloc[0]["Last_Name"]
+                    st.session_state["role"] = user_row.iloc[0]["Role"]
                     st.rerun()
                 else:
                     st.error("Incorrect password. Please try again.")
@@ -78,17 +83,21 @@ def login_page():
 
 # --- HOME PAGE (DASHBOARD) ---
 def home_page():
-    st.title(f"Athlete: {st.session_state['username'].upper()}")
+    # Dynamic greeting based on Role and Name
+    user_role = str(st.session_state["role"]).capitalize()
+    first_name = st.session_state["first_name"]
+    last_name = st.session_state["last_name"]
+    
+    st.title(f"{user_role}: {first_name} {last_name}")
     st.button("Log Out", on_click=logout)
     st.markdown("---")
     
     st.header("Race Results & Analytics")
     
-    # Filter the races for ONLY the logged-in user
     user_races = races_data[races_data["Username"] == st.session_state["username"]].copy()
     
-    # If they have race data, calculate the math and display it
     if not user_races.empty:
+        # Math functions
         def calculate_avg_pace(row):
             total_sec = time_to_seconds(row["Total_Time"])
             distance_mi = 3.10686 if str(row["Distance"]).upper() == "5K" else 2.0
@@ -105,10 +114,26 @@ def home_page():
         user_races["Avg_Pace"] = user_races.apply(calculate_avg_pace, axis=1)
         user_races["Final_Kick"] = user_races.apply(calculate_kick, axis=1)
         
-        display_cols = ["Date", "Meet_Name", "Distance", "Mile_1", "Mile_2", "Final_Kick", "Total_Time", "Avg_Pace"]
+        # Split tables by Distance so the columns make sense
+        unique_distances = user_races["Distance"].unique()
         
-        # Display the table
-        st.dataframe(user_races[display_cols], hide_index=True, use_container_width=True)
+        for dist in unique_distances:
+            st.subheader(f"{dist} Races")
+            dist_races = user_races[user_races["Distance"] == dist].copy()
+            
+            # Base columns everyone gets
+            display_cols = ["Date", "Meet_Name", "Mile_1"]
+            
+            # Only add Mile 2 if it is a 5K
+            if str(dist).upper() == "5K":
+                display_cols.append("Mile_2")
+                
+            # Add the final columns
+            display_cols.extend(["Final_Kick", "Total_Time", "Avg_Pace"])
+            
+            st.dataframe(dist_races[display_cols], hide_index=True, use_container_width=True)
+            st.markdown("<br>", unsafe_allow_html=True) # Adds a little spacing between tables
+            
     else:
         st.info("No race data found yet for this season.")
 

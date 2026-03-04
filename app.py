@@ -3,7 +3,6 @@ import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 
 # --- PAGE SETUP & CSS ---
-# Removed any remaining emojis to keep it purely professional
 st.set_page_config(page_title="MCXC Team Dashboard", layout="centered")
 
 st.markdown("""
@@ -44,6 +43,7 @@ if "logged_in" not in st.session_state:
     st.session_state["first_name"] = ""
     st.session_state["last_name"] = ""
     st.session_state["role"] = ""
+    st.session_state["first_login"] = False
 
 def logout():
     st.session_state["logged_in"] = False
@@ -51,6 +51,7 @@ def logout():
     st.session_state["first_name"] = ""
     st.session_state["last_name"] = ""
     st.session_state["role"] = ""
+    st.session_state["first_login"] = False
 
 # --- LOGIN PAGE ---
 def login_page():
@@ -69,21 +70,56 @@ def login_page():
                 correct_password = str(user_row.iloc[0]["Password"])
                 
                 if password == correct_password:
-                    # Save all user info into session state
                     st.session_state["logged_in"] = True
                     st.session_state["username"] = username
                     st.session_state["first_name"] = user_row.iloc[0]["First_Name"]
                     st.session_state["last_name"] = user_row.iloc[0]["Last_Name"]
                     st.session_state["role"] = user_row.iloc[0]["Role"]
+                    
+                    # Check if it's their first login
+                    first_login_status = str(user_row.iloc[0]["First_Login"]).strip().upper()
+                    st.session_state["first_login"] = (first_login_status == "TRUE")
+                    
                     st.rerun()
                 else:
                     st.error("Incorrect password. Please try again.")
             else:
                 st.error("Username not found.")
 
+# --- PASSWORD RESET PAGE ---
+def password_reset_page():
+    st.title("Welcome to the Team! 🏃")
+    st.markdown("Since this is your first time logging in, please create a new, secure password.")
+    
+    with st.form("reset_password_form"):
+        new_password = st.text_input("New Password", type="password")
+        confirm_password = st.text_input("Confirm New Password", type="password")
+        submit_reset = st.form_submit_button("Update Password")
+        
+        if submit_reset:
+            if len(new_password) < 4:
+                st.error("Password must be at least 4 characters long.")
+            elif new_password != confirm_password:
+                st.error("Passwords do not match. Try again!")
+            else:
+                # 1. Find the exact row for this user in the Roster dataframe
+                user_index = roster_data.index[roster_data['Username'] == st.session_state['username']].tolist()[0]
+                
+                # 2. Update their password and change First_Login to FALSE
+                roster_data.at[user_index, 'Password'] = new_password
+                roster_data.at[user_index, 'First_Login'] = "FALSE"
+                
+                # 3. Push the entire updated dataframe back to Google Sheets
+                with st.spinner("Updating your account securely..."):
+                    conn.update(worksheet="Roster", data=roster_data)
+                
+                # 4. Clear the cache, update session state, and let them into the app
+                st.cache_data.clear()
+                st.session_state["first_login"] = False
+                st.rerun()
+
 # --- HOME PAGE (DASHBOARD) ---
 def home_page():
-    # Dynamic greeting based on Role and Name
     user_role = str(st.session_state["role"]).capitalize()
     first_name = st.session_state["first_name"]
     last_name = st.session_state["last_name"]
@@ -97,7 +133,6 @@ def home_page():
     user_races = races_data[races_data["Username"] == st.session_state["username"]].copy()
     
     if not user_races.empty:
-        # Math functions
         def calculate_avg_pace(row):
             total_sec = time_to_seconds(row["Total_Time"])
             distance_mi = 3.10686 if str(row["Distance"]).upper() == "5K" else 2.0
@@ -114,31 +149,28 @@ def home_page():
         user_races["Avg_Pace"] = user_races.apply(calculate_avg_pace, axis=1)
         user_races["Final_Kick"] = user_races.apply(calculate_kick, axis=1)
         
-        # Split tables by Distance so the columns make sense
         unique_distances = user_races["Distance"].unique()
         
         for dist in unique_distances:
             st.subheader(f"{dist} Races")
             dist_races = user_races[user_races["Distance"] == dist].copy()
             
-            # Base columns everyone gets
             display_cols = ["Date", "Meet_Name", "Mile_1"]
-            
-            # Only add Mile 2 if it is a 5K
             if str(dist).upper() == "5K":
                 display_cols.append("Mile_2")
                 
-            # Add the final columns
             display_cols.extend(["Final_Kick", "Total_Time", "Avg_Pace"])
-            
             st.dataframe(dist_races[display_cols], hide_index=True, use_container_width=True)
-            st.markdown("<br>", unsafe_allow_html=True) # Adds a little spacing between tables
+            st.markdown("<br>", unsafe_allow_html=True)
             
     else:
         st.info("No race data found yet for this season.")
 
 # --- MAIN APP LOGIC ---
+# The "Traffic Director" now has three routes!
 if not st.session_state["logged_in"]:
     login_page()
+elif st.session_state["first_login"]:
+    password_reset_page()
 else:
     home_page()

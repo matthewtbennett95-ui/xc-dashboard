@@ -155,17 +155,31 @@ def home_page():
             st.subheader(f"{dist} Races")
             dist_races = user_races[user_races["Distance"] == dist].copy()
             
+            # Base columns
             display_cols = ["Date", "Meet_Name", "Mile_1"]
             if str(dist).upper() == "5K":
                 display_cols.append("Mile_2")
                 
             display_cols.extend(["Final_Kick", "Total_Time", "Avg_Pace"])
-            st.dataframe(dist_races[display_cols], hide_index=True, use_container_width=True)
+            
+            # Dictionary to clean up the names for the user interface
+            rename_dict = {
+                "Meet_Name": "Meet Name",
+                "Mile_1": "Mile 1",
+                "Mile_2": "Mile 2",
+                "Final_Kick": "Final Kick",
+                "Total_Time": "Total Time",
+                "Avg_Pace": "Avg Pace"
+            }
+            
+            # Apply the clean names and display
+            clean_table = dist_races[display_cols].rename(columns=rename_dict)
+            st.dataframe(clean_table, hide_index=True, use_container_width=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
     else:
         st.info("No race data found yet for this season.")
-
+        
 # --- MAIN APP LOGIC ---
 # The "Traffic Director" now has three routes!
 if not st.session_state["logged_in"]:

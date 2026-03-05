@@ -36,6 +36,13 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 roster_data = conn.read(worksheet="Roster", ttl=0)
 races_data = conn.read(worksheet="Races", ttl=0)
 
+# Make sure the Active column is treated as a string for easy filtering
+if "Active" in roster_data.columns:
+    roster_data["Active_Clean"] = roster_data["Active"].astype(str).str.strip().str.upper()
+else:
+    # Failsafe just in case the column isn't added yet
+    roster_data["Active_Clean"] = "TRUE"
+
 # --- SESSION STATE ---
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
@@ -54,7 +61,6 @@ def logout():
     st.session_state["first_login"] = False
 
 # --- HELPER FUNCTION: DRAW RACE TABLES ---
-# We built this so both the coach and athlete dashboards can use it easily
 def display_athlete_races(target_username):
     user_races = races_data[races_data["Username"] == target_username].copy()
     
@@ -119,7 +125,12 @@ def login_page():
             if not user_row.empty:
                 correct_password = str(user_row.iloc[0]["Password"])
                 
-                if password == correct_password:
+                # Check if they are active!
+                is_active = str(user_row.iloc[0].get("Active", "TRUE")).strip().upper() in ["TRUE", "1", "1.0"]
+                
+                if not is_active:
+                    st.error("This account is no longer active.")
+                elif password == correct_password:
                     st.session_state["logged_in"] = True
                     st.session_state["username"] = username
                     st.session_state["first_name"] = user_row.iloc[0]["First_Name"]
@@ -158,8 +169,14 @@ def password_reset_page():
                 roster_data.at[user_index, 'Password'] = new_password
                 roster_data.at[user_index, 'First_Login'] = "FALSE"
                 
+                # Drop our temporary cleaning column before pushing to Google Sheets
+                if "Active_Clean" in roster_data.columns:
+                    push_data = roster_data.drop(columns=["Active_Clean"])
+                else:
+                    push_data = roster_data
+
                 with st.spinner("Updating your account securely..."):
-                    conn.update(worksheet="Roster", data=roster_data)
+                    conn.update(worksheet="Roster", data=push_data)
                 
                 st.cache_data.clear()
                 st.session_state["first_login"] = False
@@ -177,29 +194,102 @@ def home_page():
     
     # --- ROUTE 1: COACH DASHBOARD ---
     if user_role.upper() == "COACH":
-        tab1, tab2, tab3 = st.tabs(["Athlete Lookup", "Team Roster", "Add Race Data"])
+        tab1, tab2, tab3 = st.tabs(["Athlete Lookup", "Roster Management", "Add Race Data"])
         
         with tab1:
             st.subheader("Athlete Lookup")
-            # Get a list of everyone who is an ATHLETE
-            athlete_df = roster_data[roster_data["Role"].str.upper() == "ATHLETE"]
+            # Only show ACTIVE athletes in the lookup
+            active_athletes = roster_data[(roster_data["Role"].str.upper() == "ATHLETE") & 
+                                          (roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"]))]
             
-            # Create a dictionary to map usernames to real names (so the coach sees real names in the dropdown)
-            athlete_dict = {row["Username"]: f"{row['First_Name']} {row['Last_Name']}" for _, row in athlete_df.iterrows()}
+            athlete_dict = {row["Username"]: f"{row['First_Name']} {row['Last_Name']}" for _, row in active_athletes.iterrows()}
             
-            # The dropdown selector
             selected_username = st.selectbox("Select an Athlete:", options=list(athlete_dict.keys()), format_func=lambda x: athlete_dict[x])
             
             if selected_username:
                 st.markdown(f"**Viewing data for: {athlete_dict[selected_username]}**")
-                display_athlete_races(selected_username) # Uses our new helper function!
+                display_athlete_races(selected_username)
                 
         with tab2:
-            st.subheader("Team Roster")
-            # Clean up the roster view for the coach so they don't see passwords
-            display_roster = roster_data[["First_Name", "Last_Name", "Role", "Username"]].copy()
-            st.dataframe(display_roster, hide_index=True, use_container_width=True)
+            st.subheader("Roster Management")
             
+            # Create a mini-menu inside the Roster tab
+            roster_action = st.radio("Choose an action:", ["View Roster", "Add New Member", "Archive/Remove Member"], horizontal=True)
+            st.markdown("---")
+            
+            if roster_action == "View Roster":
+                active_roster = roster_data[roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"])].copy()
+                
+                # If Grad_Year exists, let them sort by it
+                if "Grad_Year" in active_roster.columns:
+                    # Clean up the display dataframe
+                    display_roster = active_roster[["First_Name", "Last_Name", "Grad_Year", "Role", "Username"]].copy()
+                    display_roster["Grad_Year"] = pd.to_numeric(display_roster["Grad_Year"], errors="coerce").fillna(0).astype(int)
+                    # Convert 0s back to blank strings for a cleaner look
+                    display_roster["Grad_Year"] = display_roster["Grad_Year"].replace(0, "")
+                    
+                    st.dataframe(display_roster.sort_values(by=["Grad_Year", "Last_Name"]), hide_index=True, use_container_width=True)
+                else:
+                    display_roster = active_roster[["First_Name", "Last_Name", "Role", "Username"]].copy()
+                    st.dataframe(display_roster.sort_values(by=["Last_Name"]), hide_index=True, use_container_width=True)
+
+            elif roster_action == "Add New Member":
+                with st.form("add_member_form"):
+                    col1, col2 = st.columns(2)
+                    new_first = col1.text_input("First Name")
+                    new_last = col2.text_input("Last Name")
+                    new_grad_year = col1.text_input("Graduation Year (e.g., 2026)")
+                    new_role = col2.selectbox("Role", ["Athlete", "Coach"])
+                    
+                    submit_new = st.form_submit_button("Add to Roster")
+                    
+                    if submit_new and new_first and new_last:
+                        generated_username = f"{new_first.lower()}.{new_last.lower()}".replace(" ", "")
+                        
+                        # Create a new row of data
+                        new_row = pd.DataFrame([{
+                            "Username": generated_username,
+                            "Password": "changeme", # Default temporary password
+                            "First_Name": new_first,
+                            "Last_Name": new_last,
+                            "Role": new_role,
+                            "First_Login": "TRUE",
+                            "Active": "TRUE",
+                            "Grad_Year": new_grad_year
+                        }])
+                        
+                        # Drop the temporary clean column before updating
+                        push_data = roster_data.drop(columns=["Active_Clean"]) if "Active_Clean" in roster_data.columns else roster_data
+                        updated_roster = pd.concat([push_data, new_row], ignore_index=True)
+                        
+                        with st.spinner("Adding new member..."):
+                            conn.update(worksheet="Roster", data=updated_roster)
+                        
+                        st.success(f"Added {new_first} {new_last}! Their username is '{generated_username}' and temporary password is 'changeme'.")
+                        st.cache_data.clear()
+                        st.rerun()
+
+            elif roster_action == "Archive/Remove Member":
+                st.warning("Archiving a runner hides them from the active roster and prevents them from logging in, but keeps their historical race data safe.")
+                
+                active_athletes = roster_data[roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"])]
+                archive_dict = {row["Username"]: f"{row['First_Name']} {row['Last_Name']} ({row.get('Grad_Year', 'N/A')})" for _, row in active_athletes.iterrows()}
+                
+                user_to_archive = st.selectbox("Select Member to Archive:", options=list(archive_dict.keys()), format_func=lambda x: archive_dict[x])
+                
+                if st.button("Archive Member"):
+                    user_index = roster_data.index[roster_data['Username'] == user_to_archive].tolist()[0]
+                    roster_data.at[user_index, 'Active'] = "FALSE"
+                    
+                    push_data = roster_data.drop(columns=["Active_Clean"]) if "Active_Clean" in roster_data.columns else roster_data
+                    
+                    with st.spinner("Archiving member..."):
+                        conn.update(worksheet="Roster", data=push_data)
+                        
+                    st.success("Member archived successfully.")
+                    st.cache_data.clear()
+                    st.rerun()
+
         with tab3:
             st.subheader("Data Entry Command Center")
             st.info("Coming soon: A secure form to add new race times directly to the Google Sheet without ever leaving this app.")
@@ -207,7 +297,7 @@ def home_page():
     # --- ROUTE 2: ATHLETE DASHBOARD ---
     else:
         st.header("Race Results & Analytics")
-        display_athlete_races(st.session_state["username"]) # Uses the exact same helper function!
+        display_athlete_races(st.session_state["username"])
 
 # --- MAIN APP LOGIC ---
 if not st.session_state["logged_in"]:

@@ -516,7 +516,5 @@ def home_page():
 if not st.session_state["logged_in"]: login_page()
 elif st.session_state["first_login"]: password_reset_page()
 else: home_page()
-
-if not st.session_state["logged_in"]: login_page()
 elif st.session_state["first_login"]: password_reset_page()
 else: home_page()

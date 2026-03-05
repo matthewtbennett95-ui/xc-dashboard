@@ -125,6 +125,11 @@ def password_reset_page():
 
 # --- HOME PAGE (DASHBOARD) ---
 def home_page():
+    # --- 🕵️‍♂️ TEMPORARY DEBUG BLOCK ---
+    user_row = roster_data[roster_data["Username"] == st.session_state["username"]]
+    raw_val = user_row.iloc[0]["First_Login"]
+    st.error(f"DEBUG: The app sees your First_Login value as: '{raw_val}' (Data Type: {type(raw_val)})")
+    # -----------------------------------
     user_role = str(st.session_state["role"]).capitalize()
     first_name = st.session_state["first_name"]
     last_name = st.session_state["last_name"]

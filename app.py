@@ -65,7 +65,6 @@ else:
 if "Gender" not in roster_data.columns:
     roster_data["Gender"] = "N/A"
 
-# Ensure Races sheet has necessary columns (failsafe)
 expected_race_cols = ["Date", "Meet_Name", "Race_Name", "Distance", "Username", "Mile_1", "Mile_2", "Total_Time"]
 for col in expected_race_cols:
     if col not in races_data.columns:
@@ -80,19 +79,17 @@ if "logged_in" not in st.session_state:
     st.session_state["role"] = ""
     st.session_state["first_login"] = False
 
-# Session state for sticky meet context
-if "meet_context" not in st.session_state:
-    st.session_state["meet_context"] = {
-        "locked": False,
-        "date": datetime.date.today(),
-        "meet_name": "",
-        "race_name": "",
-        "distance": "5K"
-    }
+# New Session State for the Step-by-Step Data Entry
+for key in ["current_meet", "current_meet_date", "current_race", "current_distance"]:
+    if key not in st.session_state:
+        st.session_state[key] = None
 
 def logout():
     for key in ["logged_in", "username", "first_name", "last_name", "role", "first_login"]:
         st.session_state[key] = False if key in ["logged_in", "first_login"] else ""
+    # Clear meet context on logout too
+    for key in ["current_meet", "current_meet_date", "current_race", "current_distance"]:
+        st.session_state[key] = None
 
 # --- HELPER FUNCTION: DRAW RACE TABLES ---
 def display_athlete_races(target_username):
@@ -115,8 +112,8 @@ def display_athlete_races(target_username):
         user_races["Avg_Pace"] = user_races.apply(calculate_avg_pace, axis=1)
         user_races["Final_Kick"] = user_races.apply(calculate_kick, axis=1)
         
-        # Format the Date nicely
-        user_races["Date"] = pd.to_datetime(user_races["Date"]).dt.strftime('%m/%d/%Y')
+        # FIX FOR THE VALUE ERROR: Use errors='coerce' and fill bad dates gracefully
+        user_races["Date"] = pd.to_datetime(user_races["Date"], errors='coerce').dt.strftime('%m/%d/%Y').fillna("Unknown")
         
         unique_distances = user_races["Distance"].unique()
         
@@ -124,7 +121,6 @@ def display_athlete_races(target_username):
             st.subheader(f"{dist} Races")
             dist_races = user_races[user_races["Distance"] == dist].copy()
             
-            # Added Race_Name to the display if it exists
             display_cols = ["Date", "Meet_Name", "Race_Name", "Mile_1"]
             if str(dist).upper() == "5K": display_cols.append("Mile_2")
             display_cols.extend(["Final_Kick", "Total_Time", "Avg_Pace"])
@@ -224,7 +220,6 @@ def home_page():
                 
         with tab2:
             st.subheader("Roster Management")
-            # --- (Roster Management Code remains exactly the same as the previous version) ---
             roster_action = st.radio("Choose an action:", 
                                      ["View Current Roster", "Add New Member", "Edit Member", "Archive / Restore"], 
                                      horizontal=True)
@@ -371,44 +366,98 @@ def home_page():
 
         with tab3:
             st.subheader("Race Data Entry")
-            st.markdown("Set your Meet & Race details first, then add runners to it rapid-fire.")
             
-            # --- STEP 1: SET MEET CONTEXT ---
-            with st.expander("📍 Step 1: Set Meet Details", expanded=not st.session_state["meet_context"]["locked"]):
-                ctx_col1, ctx_col2 = st.columns(2)
-                with ctx_col1: 
-                    meet_input = st.text_input("Meet Name", value=st.session_state["meet_context"]["meet_name"], placeholder="e.g., State Championship")
-                    race_input = st.text_input("Race Category", value=st.session_state["meet_context"]["race_name"], placeholder="e.g., Boys Varsity, Girls JV")
-                with ctx_col2:
-                    date_input = st.date_input("Date", value=st.session_state["meet_context"]["date"])
-                    dist_opts = ["5K", "2 Mile", "Other"]
-                    dist_idx = dist_opts.index(st.session_state["meet_context"]["distance"]) if st.session_state["meet_context"]["distance"] in dist_opts else 0
-                    dist_input = st.selectbox("Distance", dist_opts, index=dist_idx)
+            # --- TOP BAR: RESET BUTTON ---
+            if st.session_state.current_meet:
+                reset_col1, reset_col2 = st.columns([3, 1])
+                with reset_col1:
+                    st.success(f"📍 **Meet Locked:** {st.session_state.current_meet} ({st.session_state.current_meet_date})")
+                with reset_col2:
+                    if st.button("🔄 Change Meet"):
+                        st.session_state.current_meet = None
+                        st.session_state.current_race = None
+                        st.rerun()
+            
+            # --- STEP 1: SET MEET ---
+            if not st.session_state.current_meet:
+                st.markdown("### Step 1: Select or Create a Meet")
+                existing_meets = races_data[races_data["Meet_Name"].astype(str).str.strip() != ""]["Meet_Name"].dropna().unique().tolist()
                 
-                if st.button("Lock Meet Details & Start Entering Times"):
-                    if not meet_input or not race_input:
-                        st.error("Please enter both Meet Name and Race Category.")
+                col_m1, col_m2 = st.columns(2)
+                with col_m1:
+                    st.markdown("**Use Existing Meet**")
+                    if existing_meets:
+                        sel_meet = st.selectbox("Choose Meet", existing_meets)
+                        if st.button("Set Existing Meet"):
+                            # Auto-fetch date from database
+                            m_date_val = races_data[races_data["Meet_Name"] == sel_meet]["Date"].dropna().iloc[0]
+                            st.session_state.current_meet = sel_meet
+                            st.session_state.current_meet_date = pd.to_datetime(m_date_val, errors='coerce').date()
+                            st.rerun()
                     else:
-                        st.session_state["meet_context"].update({
-                            "locked": True, "meet_name": meet_input, "race_name": race_input,
-                            "date": date_input, "distance": dist_input
-                        })
+                        st.info("No existing meets found.")
+                        
+                with col_m2:
+                    st.markdown("**Create New Meet**")
+                    new_meet = st.text_input("New Meet Name")
+                    new_date = st.date_input("Meet Date")
+                    if st.button("Create New Meet"):
+                        if new_meet:
+                            st.session_state.current_meet = new_meet
+                            st.session_state.current_meet_date = new_date
+                            st.rerun()
+                        else:
+                            st.error("Please enter a Meet Name.")
+
+            # --- STEP 2: SET RACE ---
+            elif st.session_state.current_meet and not st.session_state.current_race:
+                st.markdown("### Step 2: Select or Create a Race")
+                
+                # Filter to only races belonging to the chosen meet
+                meet_races_df = races_data[races_data["Meet_Name"] == st.session_state.current_meet]
+                existing_races = meet_races_df[meet_races_df["Race_Name"].astype(str).str.strip() != ""]["Race_Name"].dropna().unique().tolist()
+                
+                col_r1, col_r2 = st.columns(2)
+                with col_r1:
+                    st.markdown("**Use Existing Race**")
+                    if existing_races:
+                        sel_race = st.selectbox("Choose Race", existing_races)
+                        if st.button("Set Existing Race"):
+                            r_dist = meet_races_df[meet_races_df["Race_Name"] == sel_race]["Distance"].dropna().iloc[0]
+                            st.session_state.current_race = sel_race
+                            st.session_state.current_distance = r_dist
+                            st.rerun()
+                    else:
+                        st.info("No races saved for this meet yet.")
+                        
+                with col_r2:
+                    st.markdown("**Create New Race**")
+                    new_race = st.text_input("New Race Category (e.g., Boys JV)")
+                    new_dist = st.selectbox("Distance", ["5K", "2 Mile", "Other"])
+                    if st.button("Create New Race"):
+                        if new_race:
+                            st.session_state.current_race = new_race
+                            st.session_state.current_distance = new_dist
+                            st.rerun()
+                        else:
+                            st.error("Please enter a Race Category.")
+
+            # --- STEP 3: LOG TIMES ---
+            elif st.session_state.current_meet and st.session_state.current_race:
+                
+                col_info1, col_info2 = st.columns([3, 1])
+                with col_info1:
+                    st.info(f"🏁 **Race Locked:** {st.session_state.current_race} ({st.session_state.current_distance})")
+                with col_info2:
+                    if st.button("🔄 Change Race"):
+                        st.session_state.current_race = None
                         st.rerun()
 
-            # --- STEP 2: ADD RESULTS TO LOCKED CONTEXT ---
-            if st.session_state["meet_context"]["locked"]:
-                st.success(f"**Current Race:** {st.session_state['meet_context']['meet_name']} - {st.session_state['meet_context']['race_name']} ({st.session_state['meet_context']['distance']} on {st.session_state['meet_context']['date'].strftime('%m/%d/%Y')})")
-                
-                if st.button("Unlock to Change Meet/Race"):
-                    st.session_state["meet_context"]["locked"] = False
-                    st.rerun()
-                
                 st.markdown("---")
                 st.subheader("🏃 Log Runner Times")
                 
                 active_athletes = roster_data[(roster_data["Role"].str.upper() == "ATHLETE") & 
                                               (roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"]))].copy()
-                
                 active_athletes = active_athletes.sort_values(by=["Gender", "Last_Name"])
                 runner_dict = {row["Username"]: f"{row['First_Name']} {row['Last_Name']} ({row.get('Gender', 'N/A')})" for _, row in active_athletes.iterrows()}
                 
@@ -416,26 +465,25 @@ def home_page():
                     runner_selected = st.selectbox("Select Runner:", options=list(runner_dict.keys()), format_func=lambda x: runner_dict[x])
                     
                     time_col1, time_col2, time_col3 = st.columns(3)
-                    with time_col1:
-                        m1_time = st.text_input("Mile 1 Split", placeholder="e.g., 5:30")
+                    with time_col1: m1_time = st.text_input("Mile 1 Split", placeholder="e.g., 5:30")
                     with time_col2:
-                        if st.session_state["meet_context"]["distance"] == "5K":
+                        if st.session_state.current_distance == "5K":
                             m2_time = st.text_input("Mile 2 Split", placeholder="e.g., 11:15")
                         else:
-                            m2_time = "" # Hide if it's a 2 Mile race
-                            st.info("Mile 2 Split hidden for 2 Mile races.")
-                    with time_col3:
-                        total_time = st.text_input("Total Finish Time", placeholder="e.g., 17:45")
+                            m2_time = ""
+                            st.caption("Mile 2 hidden for 2-mile race.")
+                    with time_col3: total_time = st.text_input("Total Finish Time", placeholder="e.g., 17:45")
                         
                     if st.form_submit_button("Save Result & Next"):
                         if not total_time:
                             st.error("Total Finish Time is required.")
                         else:
+                            formatted_date = pd.to_datetime(st.session_state.current_meet_date).strftime("%Y-%m-%d")
                             new_race_row = pd.DataFrame([{
-                                "Date": st.session_state["meet_context"]["date"].strftime("%Y-%m-%d"),
-                                "Meet_Name": st.session_state["meet_context"]["meet_name"],
-                                "Race_Name": st.session_state["meet_context"]["race_name"],
-                                "Distance": st.session_state["meet_context"]["distance"],
+                                "Date": formatted_date,
+                                "Meet_Name": st.session_state.current_meet,
+                                "Race_Name": st.session_state.current_race,
+                                "Distance": st.session_state.current_distance,
                                 "Username": runner_selected,
                                 "Mile_1": m1_time,
                                 "Mile_2": m2_time,
@@ -443,7 +491,6 @@ def home_page():
                             }])
                             
                             updated_races = pd.concat([races_data, new_race_row], ignore_index=True)
-                            
                             with st.spinner(f"Saving time for {runner_dict[runner_selected]}..."):
                                 conn.update(worksheet="Races", data=updated_races)
                             
@@ -453,22 +500,22 @@ def home_page():
                 
                 # --- MINI VIEW: SHOW RECENT ENTRIES ---
                 st.markdown("#### Previously Entered for this Race")
-                current_meet = st.session_state["meet_context"]["meet_name"]
-                current_race = st.session_state["meet_context"]["race_name"]
+                recent_entries = races_data[(races_data["Meet_Name"] == st.session_state.current_meet) & 
+                                            (races_data["Race_Name"] == st.session_state.current_race)].copy()
                 
-                # Filter races sheet for just this exact meet and race
-                recent_entries = races_data[(races_data["Meet_Name"] == current_meet) & (races_data["Race_Name"] == current_race)].copy()
                 if not recent_entries.empty:
-                    # Map usernames to real names for easier reading
                     athlete_lookup = {row["Username"]: f"{row['First_Name']} {row['Last_Name']}" for _, row in roster_data.iterrows()}
                     recent_entries["Athlete"] = recent_entries["Username"].map(athlete_lookup)
-                    
-                    display_cols = ["Athlete", "Mile_1", "Mile_2", "Total_Time"] if st.session_state["meet_context"]["distance"] == "5K" else ["Athlete", "Mile_1", "Total_Time"]
+                    display_cols = ["Athlete", "Mile_1", "Mile_2", "Total_Time"] if st.session_state.current_distance == "5K" else ["Athlete", "Mile_1", "Total_Time"]
                     st.dataframe(recent_entries[display_cols], hide_index=True, use_container_width=True)
 
     else:
         st.header("Race Results & Analytics")
         display_athlete_races(st.session_state["username"])
+
+if not st.session_state["logged_in"]: login_page()
+elif st.session_state["first_login"]: password_reset_page()
+else: home_page()
 
 if not st.session_state["logged_in"]: login_page()
 elif st.session_state["first_login"]: password_reset_page()

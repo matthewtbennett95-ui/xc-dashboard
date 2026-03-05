@@ -75,9 +75,11 @@ def get_grade_level(grad_year_str):
 
 # --- SECURE DATABASE CONNECTION ---
 conn = st.connection("gsheets", type=GSheetsConnection)
-roster_data = conn.read(worksheet="Roster", ttl=0)
-races_data = conn.read(worksheet="Races", ttl=0)
-workouts_data = conn.read(worksheet="Workouts", ttl=0)
+
+# Set TTL to 600 seconds (10 mins) to prevent Google API rate limits during data entry
+roster_data = conn.read(worksheet="Roster", ttl=600)
+races_data = conn.read(worksheet="Races", ttl=600)
+workouts_data = conn.read(worksheet="Workouts", ttl=600)
 
 if "Active" in roster_data.columns:
     roster_data["Active_Clean"] = roster_data["Active"].astype(str).str.strip().str.upper()
@@ -440,7 +442,6 @@ def home_page():
             elif de_type == "Workouts":
                 st.subheader("Workout Data Entry")
                 
-                # Setup Variables with Dynamic Dropdowns
                 w_col1, w_col2, w_col3 = st.columns(3)
                 
                 with w_col1:
@@ -448,7 +449,6 @@ def home_page():
                     w_type = st.selectbox("Workout Type", ["Tempo", "Intervals", "Hills", "Other"])
                 
                 with w_col2:
-                    # Logic for cascading dropdown
                     if w_type == "Tempo":
                         dist_options = ["Track 400s", "1 Mile", "2 Miles", "3 Miles", "4 Miles", "Split (e.g., 2+2)", "Custom/Other"]
                     elif w_type == "Intervals":
@@ -473,7 +473,7 @@ def home_page():
 
                 st.markdown("---")
                 st.markdown("**Data Entry Grid**")
-                st.caption("Leave cells blank for athletes who did not participate or did fewer reps. Time can be entered as '134' for 1:34, '82' for 1:22, or '5:30'.")
+                st.caption("Leave cells blank to skip a runner. Select 'Not Assigned' to record that they were intentionally excluded today.")
                 
                 active_athletes = roster_data[(roster_data["Role"].str.upper() == "ATHLETE") & (roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"]))].copy()
                 active_athletes = active_athletes.sort_values(by=["Gender", "Last_Name"])
@@ -492,9 +492,9 @@ def home_page():
                 df_grid = pd.DataFrame(grid_data)
                 
                 column_config = {
-                    "Username": None, # Hidden column
+                    "Username": None,
                     "Athlete Name": st.column_config.TextColumn("Athlete Name", disabled=True),
-                    "Status": st.column_config.SelectboxColumn("Status", options=["Present", "Sick", "Injured", "Unexcused"], required=True)
+                    "Status": st.column_config.SelectboxColumn("Status", options=["Present", "Not Assigned", "Sick", "Injured", "Unexcused"], required=True)
                 }
                 for i in range(1, w_reps + 1):
                     column_config[f"Rep {i}"] = st.column_config.TextColumn(f"Rep {i}")
@@ -544,6 +544,8 @@ def home_page():
                             st.success("Workout saved successfully!")
                             st.cache_data.clear()
                             st.rerun()
+                        else:
+                            st.info("No workout data was entered to save.")
 
     else:
         st.header("Training Dashboard")

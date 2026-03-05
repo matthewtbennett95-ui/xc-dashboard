@@ -76,16 +76,18 @@ def login_page():
                     st.session_state["last_name"] = user_row.iloc[0]["Last_Name"]
                     st.session_state["role"] = user_row.iloc[0]["Role"]
                     
-                    # Bulletproof check for First_Login status
+                    # --- THE ULTIMATE BULLETPROOF CHECK ---
                     raw_status = user_row.iloc[0]["First_Login"]
+                    cleaned_status = str(raw_status).strip().upper()
                     
-                    # This checks if it's the word "TRUE", the boolean True, or the number 1
-                    if raw_status is True or str(raw_status).strip().upper() == "TRUE" or str(raw_status).strip() == "1":
+                    # Now it looks for TRUE, 1, or 1.0
+                    if cleaned_status in ["TRUE", "1", "1.0"]:
                         st.session_state["first_login"] = True
                     else:
                         st.session_state["first_login"] = False
                     
                     st.rerun()
+                    # --------------------------------------
                 else:
                     st.error("Incorrect password. Please try again.")
             else:
@@ -125,11 +127,6 @@ def password_reset_page():
 
 # --- HOME PAGE (DASHBOARD) ---
 def home_page():
-    # --- 🕵️‍♂️ TEMPORARY DEBUG BLOCK ---
-    user_row = roster_data[roster_data["Username"] == st.session_state["username"]]
-    raw_val = user_row.iloc[0]["First_Login"]
-    st.error(f"DEBUG: The app sees your First_Login value as: '{raw_val}' (Data Type: {type(raw_val)})")
-    # -----------------------------------
     user_role = str(st.session_state["role"]).capitalize()
     first_name = st.session_state["first_name"]
     last_name = st.session_state["last_name"]

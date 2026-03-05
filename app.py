@@ -39,7 +39,6 @@ def get_grade_level(grad_year_str):
     grad_year = int(grad_year_str)
     today = datetime.date.today()
     
-    # XC Season logic: Fall sport. If month < July, season was last year.
     current_season_year = today.year - 1 if today.month < 7 else today.year
     spring_grad_year = current_season_year + 1
     
@@ -58,7 +57,6 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 roster_data = conn.read(worksheet="Roster", ttl=0)
 races_data = conn.read(worksheet="Races", ttl=0)
 
-# Failsafes for new columns in case they aren't filled out yet
 if "Active" in roster_data.columns:
     roster_data["Active_Clean"] = roster_data["Active"].astype(str).str.strip().str.upper()
 else:
@@ -108,8 +106,7 @@ def display_athlete_races(target_username):
             dist_races = user_races[user_races["Distance"] == dist].copy()
             
             display_cols = ["Date", "Meet_Name", "Mile_1"]
-            if str(dist).upper() == "5K":
-                display_cols.append("Mile_2")
+            if str(dist).upper() == "5K": display_cols.append("Mile_2")
             display_cols.extend(["Final_Kick", "Total_Time", "Avg_Pace"])
             
             rename_dict = {"Meet_Name": "Meet Name", "Mile_1": "Mile 1", "Mile_2": "Mile 2", 
@@ -156,9 +153,9 @@ def password_reset_page():
             if len(new_password) < 4: st.error("Password must be at least 4 characters long.")
             elif new_password != confirm_password: st.error("Passwords do not match. Try again!")
             else:
-                user_index = roster_data.index[roster_data['Username'] == st.session_state['username']].tolist()[0]
-                roster_data.at[user_index, 'Password'] = new_password
-                roster_data.at[user_index, 'First_Login'] = "FALSE"
+                user_idx = roster_data.index[roster_data['Username'] == st.session_state['username']].tolist()[0]
+                roster_data.at[user_idx, 'Password'] = new_password
+                roster_data.at[user_idx, 'First_Login'] = "FALSE"
                 
                 push_data = roster_data.drop(columns=["Active_Clean"]) if "Active_Clean" in roster_data.columns else roster_data
                 with st.spinner("Updating your account securely..."):
@@ -184,14 +181,12 @@ def home_page():
             active_athletes = roster_data[(roster_data["Role"].str.upper() == "ATHLETE") & 
                                           (roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"]))].copy()
             
-            # Apply our Grade Math to the dropdown view
             active_athletes["Grade"] = active_athletes.get("Grad_Year", "Unknown").apply(get_grade_level)
             
             col_filter1, col_filter2 = st.columns(2)
             filter_gender = col_filter1.selectbox("Filter by Gender:", ["All", "Male", "Female"])
             filter_grade = col_filter2.selectbox("Filter by Grade:", ["All", "9th", "10th", "11th", "12th", "Middle School"])
             
-            # Apply filters
             if filter_gender != "All":
                 active_athletes = active_athletes[active_athletes["Gender"].str.title() == filter_gender]
             if filter_grade != "All":
@@ -204,12 +199,13 @@ def home_page():
             else:
                 selected_username = st.selectbox("Select an Athlete:", options=list(athlete_dict.keys()), format_func=lambda x: athlete_dict[x])
                 if selected_username:
-                    st.markdown(f"**Viewing data for: {athlete_dict[selected_username]}**")
                     display_athlete_races(selected_username)
                 
         with tab2:
             st.subheader("Roster Management")
-            roster_action = st.radio("Choose an action:", ["View Current Roster", "Add New Member", "Archive/Remove Member"], horizontal=True)
+            roster_action = st.radio("Choose an action:", 
+                                     ["View Current Roster", "Add New Member", "Edit Member", "Archive / Restore"], 
+                                     horizontal=True)
             st.markdown("---")
             
             if roster_action == "View Current Roster":
@@ -217,50 +213,49 @@ def home_page():
                 if "Grad_Year" in active_roster.columns:
                     active_roster["Grade"] = active_roster["Grad_Year"].apply(get_grade_level)
                     display_roster = active_roster[["First_Name", "Last_Name", "Gender", "Grade", "Grad_Year", "Role"]].copy()
-                    
-                    # Sort primarily by Grad_Year (youngest to oldest or vice versa), then Gender, then Last Name
                     display_roster["Sort_Year"] = pd.to_numeric(display_roster["Grad_Year"], errors="coerce").fillna(9999)
                     display_roster = display_roster.sort_values(by=["Role", "Sort_Year", "Gender", "Last_Name"])
                     display_roster = display_roster.drop(columns=["Sort_Year"])
-                    
                     st.dataframe(display_roster, hide_index=True, use_container_width=True)
                 else:
                     st.dataframe(active_roster[["First_Name", "Last_Name", "Role"]].sort_values(by=["Last_Name"]), hide_index=True)
 
             elif roster_action == "Add New Member":
                 with st.form("add_member_form"):
-                    # Row 1: Names
                     r1_col1, r1_col2 = st.columns(2)
                     with r1_col1: new_first = st.text_input("First Name")
                     with r1_col2: new_last = st.text_input("Last Name")
                     
-                    # Row 2: Role & Grad Year (Swapped locations!)
                     r2_col1, r2_col2 = st.columns(2)
                     with r2_col1: new_role = st.selectbox("Role", ["Athlete", "Coach"])
                     with r2_col2: new_grad_year = st.text_input("Grad Year (e.g., 2028)")
                     
-                    # Row 3: Gender
                     r3_col1, r3_col2 = st.columns(2)
                     with r3_col1: new_gender = st.selectbox("Gender", ["Male", "Female", "N/A"])
                     
-                    submit_new = st.form_submit_button("Add to Roster")
-                    
-                    if submit_new:
+                    if st.form_submit_button("Add to Roster"):
                         if not new_first or not new_last:
                             st.error("First and Last name are required.")
                         else:
-                            # Backend Override & Validation
                             if new_role == "Coach":
-                                final_grad_year = "Coach"
-                                final_gender = "N/A"
+                                final_grad_year, final_gender = "Coach", "N/A"
                             else:
-                                final_grad_year = new_grad_year.strip()
-                                final_gender = new_gender
+                                final_grad_year, final_gender = new_grad_year.strip(), new_gender
                                 if not final_grad_year.isdigit() or len(final_grad_year) != 4:
-                                    st.error("Please enter a valid 4-digit Graduation Year (e.g., 2028).")
-                                    st.stop() # Stops the code from pushing bad data
+                                    st.error("❌ Data Error: Graduation Year must be a 4-digit number (e.g., 2028).")
+                                    st.stop() 
 
-                            generated_username = f"{new_first.lower()}.{new_last.lower()}".replace(" ", "")
+                            # --- SMART USERNAME GENERATOR ---
+                            base_username = f"{new_first.lower()}.{new_last.lower()}".replace(" ", "")
+                            generated_username = base_username
+                            existing_usernames = roster_data["Username"].tolist()
+                            
+                            suffix = 1
+                            while generated_username in existing_usernames:
+                                generated_username = f"{base_username}{suffix}"
+                                suffix += 1
+                            # --------------------------------
+
                             new_row = pd.DataFrame([{
                                 "Username": generated_username, "Password": "changeme",
                                 "First_Name": new_first, "Last_Name": new_last,
@@ -273,26 +268,122 @@ def home_page():
                             
                             with st.spinner("Adding new member..."):
                                 conn.update(worksheet="Roster", data=updated_roster)
-                            
-                            st.success(f"Added {new_first} {new_last}! Username: '{generated_username}'. Password: 'changeme'.")
+                            st.success(f"Added {new_first} {new_last}! Username: '{generated_username}'.")
                             st.cache_data.clear()
                             st.rerun()
 
-            elif roster_action == "Archive/Remove Member":
-                st.warning("Archiving a runner hides them from the active roster.")
-                active_athletes = roster_data[roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"])]
-                archive_dict = {row["Username"]: f"{row['First_Name']} {row['Last_Name']}" for _, row in active_athletes.iterrows()}
+            elif roster_action == "Edit Member":
+                st.info("💡 Note: You cannot edit Usernames. This ensures their race data stays safely linked to them.")
                 
-                user_to_archive = st.selectbox("Select Member to Archive:", options=list(archive_dict.keys()), format_func=lambda x: archive_dict[x])
-                if st.button("Archive Member"):
-                    user_index = roster_data.index[roster_data['Username'] == user_to_archive].tolist()[0]
-                    roster_data.at[user_index, 'Active'] = "FALSE"
-                    push_data = roster_data.drop(columns=["Active_Clean"]) if "Active_Clean" in roster_data.columns else roster_data
-                    with st.spinner("Archiving member..."):
-                        conn.update(worksheet="Roster", data=push_data)
-                    st.success("Member archived successfully.")
-                    st.cache_data.clear()
-                    st.rerun()
+                active_athletes = roster_data[roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"])]
+                edit_dict = {row["Username"]: f"{row['First_Name']} {row['Last_Name']} ({row.get('Role', '')})" for _, row in active_athletes.iterrows()}
+                
+                if not edit_dict:
+                    st.info("No active members to edit.")
+                else:
+                    user_to_edit = st.selectbox("Select Member to Edit:", options=list(edit_dict.keys()), format_func=lambda x: edit_dict[x])
+                    
+                    if user_to_edit:
+                        target_row = roster_data[roster_data["Username"] == user_to_edit].iloc[0]
+                        
+                        with st.form("edit_member_form"):
+                            e1_col1, e1_col2 = st.columns(2)
+                            with e1_col1: edit_first = st.text_input("First Name", value=target_row["First_Name"])
+                            with e1_col2: edit_last = st.text_input("Last Name", value=target_row["Last_Name"])
+                            
+                            e2_col1, e2_col2 = st.columns(2)
+                            with e2_col1:
+                                role_index = 0 if str(target_row["Role"]).title() == "Athlete" else 1
+                                edit_role = st.selectbox("Role", ["Athlete", "Coach"], index=role_index)
+                            with e2_col2:
+                                edit_grad_year = st.text_input("Grad Year", value=str(target_row.get("Grad_Year", "")))
+                                
+                            e3_col1, e3_col2 = st.columns(2)
+                            with e3_col1:
+                                gender_val = str(target_row.get("Gender", "N/A")).title()
+                                gender_opts = ["Male", "Female", "N/A"]
+                                g_index = gender_opts.index(gender_val) if gender_val in gender_opts else 2
+                                edit_gender = st.selectbox("Gender", gender_opts, index=g_index)
+                                
+                            if st.form_submit_button("Save Changes"):
+                                if edit_role != "Coach":
+                                    if not edit_grad_year.strip().isdigit() or len(edit_grad_year.strip()) != 4:
+                                        st.error("❌ Data Error: Graduation Year must be a 4-digit number (e.g., 2028).")
+                                        st.stop()
+                                
+                                user_idx = roster_data.index[roster_data['Username'] == user_to_edit].tolist()[0]
+                                roster_data.at[user_idx, 'First_Name'] = edit_first
+                                roster_data.at[user_idx, 'Last_Name'] = edit_last
+                                roster_data.at[user_idx, 'Role'] = edit_role
+                                roster_data.at[user_idx, 'Grad_Year'] = "Coach" if edit_role == "Coach" else edit_grad_year.strip()
+                                roster_data.at[user_idx, 'Gender'] = "N/A" if edit_role == "Coach" else edit_gender
+                                
+                                push_data = roster_data.drop(columns=["Active_Clean"]) if "Active_Clean" in roster_data.columns else roster_data
+                                with st.spinner("Saving changes..."):
+                                    conn.update(worksheet="Roster", data=push_data)
+                                st.success("Member updated successfully!")
+                                st.cache_data.clear()
+                                st.rerun()
+
+            elif roster_action == "Archive / Restore":
+                arc_tab1, arc_tab2, arc_tab3 = st.tabs(["Archive Individual", "Restore Member", "🎓 Graduate Seniors"])
+                
+                with arc_tab1:
+                    active_athletes = roster_data[roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"])]
+                    archive_dict = {row["Username"]: f"{row['First_Name']} {row['Last_Name']}" for _, row in active_athletes.iterrows()}
+                    
+                    if not archive_dict:
+                        st.info("No active members to archive.")
+                    else:
+                        user_to_archive = st.selectbox("Select Member to Archive:", options=list(archive_dict.keys()), format_func=lambda x: archive_dict[x])
+                        if st.button("Archive Member"):
+                            user_idx = roster_data.index[roster_data['Username'] == user_to_archive].tolist()[0]
+                            roster_data.at[user_idx, 'Active'] = "FALSE"
+                            push_data = roster_data.drop(columns=["Active_Clean"]) if "Active_Clean" in roster_data.columns else roster_data
+                            conn.update(worksheet="Roster", data=push_data)
+                            st.cache_data.clear()
+                            st.rerun()
+
+                with arc_tab2:
+                    inactive_athletes = roster_data[~roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"])]
+                    restore_dict = {row["Username"]: f"{row['First_Name']} {row['Last_Name']}" for _, row in inactive_athletes.iterrows()}
+                    
+                    if not restore_dict:
+                        st.info("There are no archived members to restore.")
+                    else:
+                        user_to_restore = st.selectbox("Select Member to Restore:", options=list(restore_dict.keys()), format_func=lambda x: restore_dict[x])
+                        if st.button("Restore Member"):
+                            user_idx = roster_data.index[roster_data['Username'] == user_to_restore].tolist()[0]
+                            roster_data.at[user_idx, 'Active'] = "TRUE"
+                            push_data = roster_data.drop(columns=["Active_Clean"]) if "Active_Clean" in roster_data.columns else roster_data
+                            conn.update(worksheet="Roster", data=push_data)
+                            st.cache_data.clear()
+                            st.rerun()
+
+                with arc_tab3:
+                    st.warning("This will instantly archive all active runners whose Grade Level is currently calculated as '12th'.")
+                    
+                    active_df = roster_data[roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"])].copy()
+                    active_df["Grade"] = active_df.get("Grad_Year", "Unknown").apply(get_grade_level)
+                    seniors = active_df[active_df["Grade"] == "12th"]
+                    
+                    if seniors.empty:
+                        st.info("No active seniors found.")
+                    else:
+                        st.markdown("**The following seniors will be archived:**")
+                        for _, senior in seniors.iterrows():
+                            st.markdown(f"- {senior['First_Name']} {senior['Last_Name']}")
+                            
+                        if st.button("Confirm: Archive All Seniors"):
+                            for _, senior in seniors.iterrows():
+                                s_idx = roster_data.index[roster_data['Username'] == senior['Username']].tolist()[0]
+                                roster_data.at[s_idx, 'Active'] = "FALSE"
+                                
+                            push_data = roster_data.drop(columns=["Active_Clean"]) if "Active_Clean" in roster_data.columns else roster_data
+                            with st.spinner("Archiving seniors..."):
+                                conn.update(worksheet="Roster", data=push_data)
+                            st.cache_data.clear()
+                            st.rerun()
 
         with tab3:
             st.subheader("Data Entry Command Center")

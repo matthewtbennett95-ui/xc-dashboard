@@ -76,9 +76,14 @@ def login_page():
                     st.session_state["last_name"] = user_row.iloc[0]["Last_Name"]
                     st.session_state["role"] = user_row.iloc[0]["Role"]
                     
-                    # Check if it's their first login
-                    first_login_status = str(user_row.iloc[0]["First_Login"]).strip().upper()
-                    st.session_state["first_login"] = (first_login_status == "TRUE")
+                    # Bulletproof check for First_Login status
+                    raw_status = user_row.iloc[0]["First_Login"]
+                    
+                    # This checks if it's the word "TRUE", the boolean True, or the number 1
+                    if raw_status is True or str(raw_status).strip().upper() == "TRUE" or str(raw_status).strip() == "1":
+                        st.session_state["first_login"] = True
+                    else:
+                        st.session_state["first_login"] = False
                     
                     st.rerun()
                 else:

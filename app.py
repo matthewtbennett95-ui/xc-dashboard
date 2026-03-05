@@ -14,6 +14,13 @@ st.markdown("""
             margin-bottom: 2rem;
             border-radius: 4px;
         }
+        /* A little teaser CSS for our future metric cards */
+        div[data-testid="metric-container"] {
+            background-color: rgba(139, 35, 49, 0.05);
+            border: 1px solid rgba(139, 35, 49, 0.2);
+            padding: 10px;
+            border-radius: 8px;
+        }
     </style>
     <div class="color-bar"></div>
 """, unsafe_allow_html=True)
@@ -40,11 +47,8 @@ def parse_fast_time(val, mode):
         return ""
     val_str = str(val).strip()
     
-    # If it has a colon, trust it exactly as written.
-    if ":" in val_str:
-        return val_str
-    if not val_str.isdigit():
-        return val_str 
+    if ":" in val_str: return val_str
+    if not val_str.isdigit(): return val_str 
     
     num = int(val_str)
     
@@ -65,8 +69,7 @@ def parse_fast_time(val, mode):
             return f"{mins}:{secs:02d}"
 
 def get_grade_level(grad_year_str):
-    if str(grad_year_str).upper() == "COACH" or not str(grad_year_str).strip().isdigit():
-        return "Coach"
+    if str(grad_year_str).upper() == "COACH" or not str(grad_year_str).strip().isdigit(): return "Coach"
     grad_year = int(grad_year_str)
     today = datetime.date.today()
     current_season_year = today.year - 1 if today.month < 7 else today.year
@@ -88,10 +91,8 @@ roster_data = conn.read(worksheet="Roster", ttl=600)
 races_data = conn.read(worksheet="Races", ttl=600)
 workouts_data = conn.read(worksheet="Workouts", ttl=600)
 
-if "Active" in roster_data.columns:
-    roster_data["Active_Clean"] = roster_data["Active"].astype(str).str.strip().str.upper()
-else:
-    roster_data["Active_Clean"] = "TRUE"
+if "Active" in roster_data.columns: roster_data["Active_Clean"] = roster_data["Active"].astype(str).str.strip().str.upper()
+else: roster_data["Active_Clean"] = "TRUE"
     
 if "Gender" not in roster_data.columns: roster_data["Gender"] = "N/A"
 
@@ -112,8 +113,7 @@ if "logged_in" not in st.session_state:
 for key in ["current_meet", "current_meet_date", "current_race", "current_distance"]:
     if key not in st.session_state: st.session_state[key] = None
 
-if "workout_saved" not in st.session_state:
-    st.session_state["workout_saved"] = False
+if "workout_saved" not in st.session_state: st.session_state["workout_saved"] = False
 
 def logout():
     for key in ["logged_in", "first_login", "workout_saved"]: st.session_state[key] = False
@@ -162,10 +162,7 @@ def display_athlete_workouts(target_username):
         user_workouts["Date"] = user_workouts["Date_Obj"].dt.strftime('%m/%d/%Y').fillna("Unknown")
         
         display_cols = ["Date", "Workout_Type", "Rep_Distance", "Status", "Splits", "Weather"]
-        rename_dict = {
-            "Workout_Type": "Type", 
-            "Rep_Distance": "Details",
-        }
+        rename_dict = {"Workout_Type": "Type", "Rep_Distance": "Details"}
         clean_table = user_workouts[display_cols].rename(columns=rename_dict)
         st.dataframe(clean_table, hide_index=True, use_container_width=True)
     else:
@@ -244,7 +241,7 @@ def home_page():
             st.subheader("Roster Management")
             roster_action = st.radio("Choose an action:", ["View Current Roster", "Add New Member", "Edit Member", "Archive / Restore"], horizontal=True)
             st.markdown("---")
-            
+            # ... [Roster Management Code remains unchanged, truncated for clarity in reading, all code is present] ...
             if roster_action == "View Current Roster":
                 active_roster = roster_data[roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"])].copy()
                 if "Grad_Year" in active_roster.columns:
@@ -262,14 +259,11 @@ def home_page():
                     r1_col1, r1_col2 = st.columns(2)
                     with r1_col1: new_first = st.text_input("First Name")
                     with r1_col2: new_last = st.text_input("Last Name")
-                    
                     r2_col1, r2_col2 = st.columns(2)
                     with r2_col1: new_role = st.selectbox("Role", ["Athlete", "Coach"])
                     with r2_col2: new_grad_year = st.text_input("Grad Year (e.g., 2028)")
-                    
                     r3_col1, r3_col2 = st.columns(2)
                     with r3_col1: new_gender = st.selectbox("Gender", ["Male", "Female", "N/A"])
-                    
                     if st.form_submit_button("Add to Roster"):
                         if not new_first or not new_last: st.error("First and Last name are required.")
                         else:
@@ -279,7 +273,6 @@ def home_page():
                                 if not final_grad_year.isdigit() or len(final_grad_year) != 4:
                                     st.error("Data Error: Graduation Year must be a 4-digit number.")
                                     st.stop() 
-
                             base_username = f"{new_first.lower()}.{new_last.lower()}".replace(" ", "")
                             generated_username = base_username
                             existing_usernames = roster_data["Username"].tolist()
@@ -287,7 +280,6 @@ def home_page():
                             while generated_username in existing_usernames:
                                 generated_username = f"{base_username}{suffix}"
                                 suffix += 1
-
                             new_row = pd.DataFrame([{"Username": generated_username, "Password": "changeme", "First_Name": new_first, "Last_Name": new_last, "Role": new_role, "First_Login": "TRUE", "Active": "TRUE", "Grad_Year": final_grad_year, "Gender": final_gender}])
                             push_data = roster_data.drop(columns=["Active_Clean"]) if "Active_Clean" in roster_data.columns else roster_data
                             updated_roster = pd.concat([push_data, new_row], ignore_index=True)
@@ -300,7 +292,6 @@ def home_page():
                 st.info("Note: You cannot edit Usernames.")
                 active_athletes = roster_data[roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"])]
                 edit_dict = {row["Username"]: f"{row['First_Name']} {row['Last_Name']} ({row.get('Role', '')})" for _, row in active_athletes.iterrows()}
-                
                 if not edit_dict: st.info("No active members to edit.")
                 else:
                     user_to_edit = st.selectbox("Select Member to Edit:", options=list(edit_dict.keys()), format_func=lambda x: edit_dict[x])
@@ -321,7 +312,6 @@ def home_page():
                                 gender_opts = ["Male", "Female", "N/A"]
                                 g_index = gender_opts.index(gender_val) if gender_val in gender_opts else 2
                                 edit_gender = st.selectbox("Gender", gender_opts, index=g_index)
-                                
                             if st.form_submit_button("Save Changes"):
                                 if edit_role != "Coach":
                                     if not edit_grad_year.strip().isdigit() or len(edit_grad_year.strip()) != 4:
@@ -482,36 +472,24 @@ def home_page():
                     else:
                         st.subheader("Workout Data Entry")
                         w_col1, w_col2, w_col3 = st.columns(3)
-                        
                         with w_col1:
                             w_date = st.date_input("Workout Date")
                             w_type = st.selectbox("Workout Type", ["Tempo", "Intervals", "Hills", "Other"])
-                        
                         with w_col2:
-                            if w_type == "Tempo":
-                                dist_options = ["400m", "Miles", "Split", "Other"]
-                            elif w_type == "Intervals":
-                                dist_options = ["400m", "800m", "1000m", "1200m", "1 Mile", "Custom/Other"]
-                            elif w_type == "Hills":
-                                dist_options = ["400m", "800m", "Short Sprints", "Custom/Other"]
-                            else:
-                                dist_options = ["Custom/Other"]
+                            if w_type == "Tempo": dist_options = ["400m", "Miles", "Split", "Other"]
+                            elif w_type == "Intervals": dist_options = ["400m", "800m", "1000m", "1200m", "1 Mile", "Custom/Other"]
+                            elif w_type == "Hills": dist_options = ["400m", "800m", "Short Sprints", "Custom/Other"]
+                            else: dist_options = ["Custom/Other"]
                             
                             selected_dist = st.selectbox("Distance/Rep Details", dist_options)
-                            
-                            if selected_dist in ["Custom/Other", "Other", "Split"]:
-                                w_dist = st.text_input("Specify Distance/Details", placeholder="e.g., 2+1, 8x400m")
-                            else:
-                                w_dist = selected_dist
+                            if selected_dist in ["Custom/Other", "Other", "Split"]: w_dist = st.text_input("Specify Distance/Details", placeholder="e.g., 2+1, 8x400m")
+                            else: w_dist = selected_dist
                                 
                             w_reps = st.number_input("Total Max Intervals/Segments Today", min_value=1, max_value=20, value=6)
-                        
                         with w_col3:
                             w_weather = st.text_input("Weather (Temp/Conditions)", placeholder="e.g., 75F, Humid")
                             calc_mode = st.radio("Time Entry Mode:", ["Individual Splits", "Continuous Clock (Elapsed)"], index=0)
                             restart_rep = 0
-                            
-                            # ONLY SHOW RESTART BOX IF "SPLIT" IS SELECTED
                             if calc_mode == "Continuous Clock (Elapsed)" and selected_dist == "Split":
                                 restart_rep = st.number_input("Restart clock at Rep # (0 = never)", min_value=0, max_value=20, value=0, help="For a 2+1 split (3 total segments), set this to 3 so the 3rd column starts from 0.")
 
@@ -542,8 +520,7 @@ def home_page():
                             "Athlete Name": st.column_config.TextColumn("Athlete Name", disabled=True),
                             "Status": st.column_config.SelectboxColumn("Status", options=["Present", "Not Assigned", "Sick", "Injured", "Unexcused"], required=True)
                         }
-                        for i in range(1, w_reps + 1):
-                            column_config[f"Rep {i}"] = st.column_config.TextColumn(f"Rep {i}")
+                        for i in range(1, w_reps + 1): column_config[f"Rep {i}"] = st.column_config.TextColumn(f"Rep {i}")
 
                         edited_df = st.data_editor(df_grid, hide_index=True, column_config=column_config, use_container_width=True, key="new_workout_editor")
                         
@@ -580,14 +557,13 @@ def home_page():
                                 
                                 if new_workout_rows:
                                     updated_workouts = pd.concat([workouts_data, pd.DataFrame(new_workout_rows)], ignore_index=True)
-                                    with st.spinner("Saving workout..."):
-                                        conn.update(worksheet="Workouts", data=updated_workouts)
+                                    with st.spinner("Saving workout..."): conn.update(worksheet="Workouts", data=updated_workouts)
                                     st.session_state["workout_saved"] = True
                                     st.cache_data.clear()
                                     st.rerun()
 
                 elif workout_action == "Edit/Delete Existing Workout":
-                    st.subheader("Edit Existing Workout")
+                    st.subheader("Edit / Fix Existing Workout")
                     existing_dates = workouts_data["Date"].dropna().unique().tolist()
                     
                     if not existing_dates:
@@ -597,22 +573,107 @@ def home_page():
                         date_workouts = workouts_data[workouts_data["Date"] == edit_date]
                         edit_type = st.selectbox("Select Workout Type", date_workouts["Workout_Type"].unique().tolist())
                         
-                        st.info("Editing functionality requires loading the raw splits from the database. (Future update to construct full edit grid here!)")
+                        target_rows = date_workouts[date_workouts["Workout_Type"] == edit_type].copy()
                         
-                        target_rows = date_workouts[date_workouts["Workout_Type"] == edit_type]
-                        st.dataframe(target_rows, hide_index=True)
-                        
-                        if st.button("Delete This Workout Entirely"):
-                            keep_rows = workouts_data[~((workouts_data["Date"] == edit_date) & (workouts_data["Workout_Type"] == edit_type))]
-                            with st.spinner("Deleting workout..."):
-                                conn.update(worksheet="Workouts", data=keep_rows)
-                            st.success("Workout deleted!")
-                            st.cache_data.clear()
-                            st.rerun()
+                        if not target_rows.empty:
+                            w_dist = target_rows.iloc[0]["Rep_Distance"]
+                            w_weather = target_rows.iloc[0]["Weather"]
+                            
+                            st.markdown(f"**Details:** {w_dist} | **Weather:** {w_weather}")
+                            
+                            # Find out the max number of splits recorded to create enough columns
+                            max_reps = 1
+                            for _, r in target_rows.iterrows():
+                                splits = [s.strip() for s in str(r.get("Splits", "")).split(",") if s.strip()]
+                                if len(splits) > max_reps: max_reps = len(splits)
+                            
+                            grid_data = []
+                            for _, r in target_rows.iterrows():
+                                # Try to get their real name
+                                roster_match = roster_data[roster_data["Username"] == r["Username"]]
+                                a_name = f"{roster_match.iloc[0]['First_Name']} {roster_match.iloc[0]['Last_Name']}" if not roster_match.empty else r["Username"]
+                                
+                                entry = {"Username": r["Username"], "Athlete Name": a_name, "Status": r["Status"]}
+                                splits = [s.strip() for s in str(r.get("Splits", "")).split(",") if s.strip()]
+                                
+                                for i in range(1, max_reps + 1):
+                                    entry[f"Rep {i}"] = splits[i-1] if i <= len(splits) else ""
+                                grid_data.append(entry)
+                            
+                            df_grid = pd.DataFrame(grid_data)
+                            
+                            column_config = {
+                                "Username": None, # Hide username
+                                "Athlete Name": st.column_config.TextColumn("Athlete Name", disabled=True),
+                                "Status": st.column_config.SelectboxColumn("Status", options=["Present", "Not Assigned", "Sick", "Injured", "Unexcused"], required=True)
+                            }
+                            for i in range(1, max_reps + 1):
+                                column_config[f"Rep {i}"] = st.column_config.TextColumn(f"Rep {i}")
+
+                            st.caption("Edit the splits below. Type the exact corrected time (e.g., 1:04).")
+                            edited_df = st.data_editor(df_grid, hide_index=True, column_config=column_config, use_container_width=True, key="edit_workout_editor")
+                            
+                            col_save, col_del = st.columns(2)
+                            with col_save:
+                                if st.button("💾 Save Edits", type="primary", use_container_width=True):
+                                    # Drop old rows for this date/type
+                                    keep_rows = workouts_data[~((workouts_data["Date"] == edit_date) & (workouts_data["Workout_Type"] == edit_type))]
+                                    
+                                    # Rebuild rows from the grid
+                                    new_rows = []
+                                    for _, row in edited_df.iterrows():
+                                        status = row["Status"]
+                                        raw_times = [str(row[f"Rep {i}"]).strip() for i in range(1, max_reps + 1) if str(row[f"Rep {i}"]).strip() != ""]
+                                        
+                                        split_string = ", ".join(raw_times)
+                                        new_rows.append({
+                                            "Date": edit_date,
+                                            "Workout_Type": edit_type,
+                                            "Rep_Distance": w_dist,
+                                            "Weather": w_weather,
+                                            "Username": row["Username"],
+                                            "Status": status,
+                                            "Splits": split_string
+                                        })
+                                        
+                                    updated_workouts = pd.concat([keep_rows, pd.DataFrame(new_rows)], ignore_index=True)
+                                    with st.spinner("Updating workout..."):
+                                        conn.update(worksheet="Workouts", data=updated_workouts)
+                                    st.success("Workout updated successfully!")
+                                    st.cache_data.clear()
+                                    st.rerun()
+                                    
+                            with col_del:
+                                if st.button("🗑️ Delete This Workout Entirely", use_container_width=True):
+                                    keep_rows = workouts_data[~((workouts_data["Date"] == edit_date) & (workouts_data["Workout_Type"] == edit_type))]
+                                    with st.spinner("Deleting workout..."):
+                                        conn.update(worksheet="Workouts", data=keep_rows)
+                                    st.success("Workout deleted!")
+                                    st.cache_data.clear()
+                                    st.rerun()
 
     else:
         st.header("Training Dashboard")
         st.markdown("Your historical training and race data is below.")
+        
+        # --- TEASER METRICS ---
+        user_races = races_data[races_data["Username"] == st.session_state["username"]].copy()
+        user_workouts = workouts_data[workouts_data["Username"] == st.session_state["username"]].copy()
+        
+        col_m1, col_m2, col_m3 = st.columns(3)
+        col_m1.metric(label="Races Completed", value=len(user_races))
+        col_m2.metric(label="Workouts Logged", value=len(user_workouts[user_workouts["Status"] == "Present"]))
+        
+        fastest_5k = "N/A"
+        if not user_races.empty:
+            five_k_races = user_races[user_races["Distance"].str.upper() == "5K"]
+            if not five_k_races.empty:
+                fastest_sec = five_k_races["Total_Time"].apply(time_to_seconds).replace(0, float('inf')).min()
+                if fastest_sec != float('inf'): fastest_5k = seconds_to_time(fastest_sec)
+                
+        col_m3.metric(label="5K PR (This Season)", value=fastest_5k)
+        st.markdown("<br>", unsafe_allow_html=True)
+        # ---------------------
         
         tab_races, tab_workouts = st.tabs(["Race Results", "Workouts"])
         

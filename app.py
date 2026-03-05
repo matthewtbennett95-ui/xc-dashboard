@@ -79,7 +79,7 @@ if "logged_in" not in st.session_state:
     st.session_state["role"] = ""
     st.session_state["first_login"] = False
 
-# New Session State for the Step-by-Step Data Entry
+# Session State for the Step-by-Step Data Entry
 for key in ["current_meet", "current_meet_date", "current_race", "current_distance"]:
     if key not in st.session_state:
         st.session_state[key] = None
@@ -87,7 +87,6 @@ for key in ["current_meet", "current_meet_date", "current_race", "current_distan
 def logout():
     for key in ["logged_in", "username", "first_name", "last_name", "role", "first_login"]:
         st.session_state[key] = False if key in ["logged_in", "first_login"] else ""
-    # Clear meet context on logout too
     for key in ["current_meet", "current_meet_date", "current_race", "current_distance"]:
         st.session_state[key] = None
 
@@ -112,7 +111,7 @@ def display_athlete_races(target_username):
         user_races["Avg_Pace"] = user_races.apply(calculate_avg_pace, axis=1)
         user_races["Final_Kick"] = user_races.apply(calculate_kick, axis=1)
         
-        # FIX FOR THE VALUE ERROR: Use errors='coerce' and fill bad dates gracefully
+        # Graceful handling of weird dates from Google Sheets
         user_races["Date"] = pd.to_datetime(user_races["Date"], errors='coerce').dt.strftime('%m/%d/%Y').fillna("Unknown")
         
         unique_distances = user_races["Distance"].unique()
@@ -389,7 +388,6 @@ def home_page():
                     if existing_meets:
                         sel_meet = st.selectbox("Choose Meet", existing_meets)
                         if st.button("Set Existing Meet"):
-                            # Auto-fetch date from database
                             m_date_val = races_data[races_data["Meet_Name"] == sel_meet]["Date"].dropna().iloc[0]
                             st.session_state.current_meet = sel_meet
                             st.session_state.current_meet_date = pd.to_datetime(m_date_val, errors='coerce').date()
@@ -413,7 +411,6 @@ def home_page():
             elif st.session_state.current_meet and not st.session_state.current_race:
                 st.markdown("### Step 2: Select or Create a Race")
                 
-                # Filter to only races belonging to the chosen meet
                 meet_races_df = races_data[races_data["Meet_Name"] == st.session_state.current_meet]
                 existing_races = meet_races_df[meet_races_df["Race_Name"].astype(str).str.strip() != ""]["Race_Name"].dropna().unique().tolist()
                 
@@ -514,7 +511,5 @@ def home_page():
         display_athlete_races(st.session_state["username"])
 
 if not st.session_state["logged_in"]: login_page()
-elif st.session_state["first_login"]: password_reset_page()
-else: home_page()
 elif st.session_state["first_login"]: password_reset_page()
 else: home_page()

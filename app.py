@@ -79,7 +79,6 @@ if "logged_in" not in st.session_state:
     st.session_state["role"] = ""
     st.session_state["first_login"] = False
 
-# Session State for the Step-by-Step Data Entry
 for key in ["current_meet", "current_meet_date", "current_race", "current_distance"]:
     if key not in st.session_state:
         st.session_state[key] = None
@@ -111,7 +110,6 @@ def display_athlete_races(target_username):
         user_races["Avg_Pace"] = user_races.apply(calculate_avg_pace, axis=1)
         user_races["Final_Kick"] = user_races.apply(calculate_kick, axis=1)
         
-        # Graceful handling of weird dates from Google Sheets
         user_races["Date"] = pd.to_datetime(user_races["Date"], errors='coerce').dt.strftime('%m/%d/%Y').fillna("Unknown")
         
         unique_distances = user_races["Distance"].unique()
@@ -505,6 +503,20 @@ def home_page():
                     recent_entries["Athlete"] = recent_entries["Username"].map(athlete_lookup)
                     display_cols = ["Athlete", "Mile_1", "Mile_2", "Total_Time"] if st.session_state.current_distance == "5K" else ["Athlete", "Mile_1", "Total_Time"]
                     st.dataframe(recent_entries[display_cols], hide_index=True, use_container_width=True)
+                
+                # --- NEW "DONE" BUTTONS SECTION ---
+                st.markdown("---")
+                st.markdown("#### Finished Logging?")
+                done_col1, done_col2 = st.columns(2)
+                with done_col1:
+                    if st.button("🏁 Done with this Race", use_container_width=True):
+                        st.session_state.current_race = None
+                        st.rerun()
+                with done_col2:
+                    if st.button("🏠 Done with this Meet", use_container_width=True):
+                        st.session_state.current_meet = None
+                        st.session_state.current_race = None
+                        st.rerun()
 
     else:
         st.header("Race Results & Analytics")

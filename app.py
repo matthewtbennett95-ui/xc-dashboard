@@ -65,6 +65,12 @@ else:
 if "Gender" not in roster_data.columns:
     roster_data["Gender"] = "N/A"
 
+# Ensure Races sheet has necessary columns (failsafe)
+expected_race_cols = ["Date", "Meet_Name", "Race_Name", "Distance", "Username", "Mile_1", "Mile_2", "Total_Time"]
+for col in expected_race_cols:
+    if col not in races_data.columns:
+        races_data[col] = ""
+
 # --- SESSION STATE ---
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
@@ -73,6 +79,16 @@ if "logged_in" not in st.session_state:
     st.session_state["last_name"] = ""
     st.session_state["role"] = ""
     st.session_state["first_login"] = False
+
+# Session state for sticky meet context
+if "meet_context" not in st.session_state:
+    st.session_state["meet_context"] = {
+        "locked": False,
+        "date": datetime.date.today(),
+        "meet_name": "",
+        "race_name": "",
+        "distance": "5K"
+    }
 
 def logout():
     for key in ["logged_in", "username", "first_name", "last_name", "role", "first_login"]:
@@ -99,17 +115,21 @@ def display_athlete_races(target_username):
         user_races["Avg_Pace"] = user_races.apply(calculate_avg_pace, axis=1)
         user_races["Final_Kick"] = user_races.apply(calculate_kick, axis=1)
         
+        # Format the Date nicely
+        user_races["Date"] = pd.to_datetime(user_races["Date"]).dt.strftime('%m/%d/%Y')
+        
         unique_distances = user_races["Distance"].unique()
         
         for dist in unique_distances:
             st.subheader(f"{dist} Races")
             dist_races = user_races[user_races["Distance"] == dist].copy()
             
-            display_cols = ["Date", "Meet_Name", "Mile_1"]
+            # Added Race_Name to the display if it exists
+            display_cols = ["Date", "Meet_Name", "Race_Name", "Mile_1"]
             if str(dist).upper() == "5K": display_cols.append("Mile_2")
             display_cols.extend(["Final_Kick", "Total_Time", "Avg_Pace"])
             
-            rename_dict = {"Meet_Name": "Meet Name", "Mile_1": "Mile 1", "Mile_2": "Mile 2", 
+            rename_dict = {"Meet_Name": "Meet", "Race_Name": "Race", "Mile_1": "Mile 1", "Mile_2": "Mile 2", 
                            "Final_Kick": "Final Kick", "Total_Time": "Total Time", "Avg_Pace": "Avg Pace"}
             
             clean_table = dist_races[display_cols].rename(columns=rename_dict)
@@ -169,12 +189,13 @@ def password_reset_page():
 def home_page():
     user_role = str(st.session_state["role"]).capitalize()
     
-    st.title(f"{user_role}: {st.session_state['first_name']} {st.session_state['last_name']}")
-    st.button("Log Out", on_click=logout)
+    col_header1, col_header2 = st.columns([3, 1])
+    with col_header1: st.title(f"{user_role}: {st.session_state['first_name']} {st.session_state['last_name']}")
+    with col_header2: st.button("Log Out", on_click=logout, use_container_width=True)
     st.markdown("---")
     
     if user_role.upper() == "COACH":
-        tab1, tab2, tab3 = st.tabs(["Athlete Lookup", "Roster Management", "Add Race Data"])
+        tab1, tab2, tab3 = st.tabs(["Athlete Lookup", "Roster Management", "Data Entry Command Center"])
         
         with tab1:
             st.subheader("Athlete Lookup")
@@ -203,6 +224,7 @@ def home_page():
                 
         with tab2:
             st.subheader("Roster Management")
+            # --- (Roster Management Code remains exactly the same as the previous version) ---
             roster_action = st.radio("Choose an action:", 
                                      ["View Current Roster", "Add New Member", "Edit Member", "Archive / Restore"], 
                                      horizontal=True)
@@ -234,70 +256,50 @@ def home_page():
                     with r3_col1: new_gender = st.selectbox("Gender", ["Male", "Female", "N/A"])
                     
                     if st.form_submit_button("Add to Roster"):
-                        if not new_first or not new_last:
-                            st.error("First and Last name are required.")
+                        if not new_first or not new_last: st.error("First and Last name are required.")
                         else:
-                            if new_role == "Coach":
-                                final_grad_year, final_gender = "Coach", "N/A"
+                            if new_role == "Coach": final_grad_year, final_gender = "Coach", "N/A"
                             else:
                                 final_grad_year, final_gender = new_grad_year.strip(), new_gender
                                 if not final_grad_year.isdigit() or len(final_grad_year) != 4:
-                                    st.error("❌ Data Error: Graduation Year must be a 4-digit number (e.g., 2028).")
+                                    st.error("❌ Data Error: Graduation Year must be a 4-digit number.")
                                     st.stop() 
 
-                            # --- SMART USERNAME GENERATOR ---
                             base_username = f"{new_first.lower()}.{new_last.lower()}".replace(" ", "")
                             generated_username = base_username
                             existing_usernames = roster_data["Username"].tolist()
-                            
                             suffix = 1
                             while generated_username in existing_usernames:
                                 generated_username = f"{base_username}{suffix}"
                                 suffix += 1
-                            # --------------------------------
 
-                            new_row = pd.DataFrame([{
-                                "Username": generated_username, "Password": "changeme",
-                                "First_Name": new_first, "Last_Name": new_last,
-                                "Role": new_role, "First_Login": "TRUE", "Active": "TRUE",
-                                "Grad_Year": final_grad_year, "Gender": final_gender
-                            }])
-                            
+                            new_row = pd.DataFrame([{"Username": generated_username, "Password": "changeme", "First_Name": new_first, "Last_Name": new_last, "Role": new_role, "First_Login": "TRUE", "Active": "TRUE", "Grad_Year": final_grad_year, "Gender": final_gender}])
                             push_data = roster_data.drop(columns=["Active_Clean"]) if "Active_Clean" in roster_data.columns else roster_data
                             updated_roster = pd.concat([push_data, new_row], ignore_index=True)
-                            
-                            with st.spinner("Adding new member..."):
-                                conn.update(worksheet="Roster", data=updated_roster)
+                            with st.spinner("Adding new member..."): conn.update(worksheet="Roster", data=updated_roster)
                             st.success(f"Added {new_first} {new_last}! Username: '{generated_username}'.")
                             st.cache_data.clear()
                             st.rerun()
 
             elif roster_action == "Edit Member":
-                st.info("💡 Note: You cannot edit Usernames. This ensures their race data stays safely linked to them.")
-                
+                st.info("💡 Note: You cannot edit Usernames.")
                 active_athletes = roster_data[roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"])]
                 edit_dict = {row["Username"]: f"{row['First_Name']} {row['Last_Name']} ({row.get('Role', '')})" for _, row in active_athletes.iterrows()}
                 
-                if not edit_dict:
-                    st.info("No active members to edit.")
+                if not edit_dict: st.info("No active members to edit.")
                 else:
                     user_to_edit = st.selectbox("Select Member to Edit:", options=list(edit_dict.keys()), format_func=lambda x: edit_dict[x])
-                    
                     if user_to_edit:
                         target_row = roster_data[roster_data["Username"] == user_to_edit].iloc[0]
-                        
                         with st.form("edit_member_form"):
                             e1_col1, e1_col2 = st.columns(2)
                             with e1_col1: edit_first = st.text_input("First Name", value=target_row["First_Name"])
                             with e1_col2: edit_last = st.text_input("Last Name", value=target_row["Last_Name"])
-                            
                             e2_col1, e2_col2 = st.columns(2)
                             with e2_col1:
                                 role_index = 0 if str(target_row["Role"]).title() == "Athlete" else 1
                                 edit_role = st.selectbox("Role", ["Athlete", "Coach"], index=role_index)
-                            with e2_col2:
-                                edit_grad_year = st.text_input("Grad Year", value=str(target_row.get("Grad_Year", "")))
-                                
+                            with e2_col2: edit_grad_year = st.text_input("Grad Year", value=str(target_row.get("Grad_Year", "")))
                             e3_col1, e3_col2 = st.columns(2)
                             with e3_col1:
                                 gender_val = str(target_row.get("Gender", "N/A")).title()
@@ -308,32 +310,26 @@ def home_page():
                             if st.form_submit_button("Save Changes"):
                                 if edit_role != "Coach":
                                     if not edit_grad_year.strip().isdigit() or len(edit_grad_year.strip()) != 4:
-                                        st.error("❌ Data Error: Graduation Year must be a 4-digit number (e.g., 2028).")
+                                        st.error("❌ Data Error: Graduation Year must be a 4-digit number.")
                                         st.stop()
-                                
                                 user_idx = roster_data.index[roster_data['Username'] == user_to_edit].tolist()[0]
                                 roster_data.at[user_idx, 'First_Name'] = edit_first
                                 roster_data.at[user_idx, 'Last_Name'] = edit_last
                                 roster_data.at[user_idx, 'Role'] = edit_role
                                 roster_data.at[user_idx, 'Grad_Year'] = "Coach" if edit_role == "Coach" else edit_grad_year.strip()
                                 roster_data.at[user_idx, 'Gender'] = "N/A" if edit_role == "Coach" else edit_gender
-                                
                                 push_data = roster_data.drop(columns=["Active_Clean"]) if "Active_Clean" in roster_data.columns else roster_data
-                                with st.spinner("Saving changes..."):
-                                    conn.update(worksheet="Roster", data=push_data)
+                                with st.spinner("Saving changes..."): conn.update(worksheet="Roster", data=push_data)
                                 st.success("Member updated successfully!")
                                 st.cache_data.clear()
                                 st.rerun()
 
             elif roster_action == "Archive / Restore":
                 arc_tab1, arc_tab2, arc_tab3 = st.tabs(["Archive Individual", "Restore Member", "🎓 Graduate Seniors"])
-                
                 with arc_tab1:
                     active_athletes = roster_data[roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"])]
                     archive_dict = {row["Username"]: f"{row['First_Name']} {row['Last_Name']}" for _, row in active_athletes.iterrows()}
-                    
-                    if not archive_dict:
-                        st.info("No active members to archive.")
+                    if not archive_dict: st.info("No active members to archive.")
                     else:
                         user_to_archive = st.selectbox("Select Member to Archive:", options=list(archive_dict.keys()), format_func=lambda x: archive_dict[x])
                         if st.button("Archive Member"):
@@ -343,13 +339,10 @@ def home_page():
                             conn.update(worksheet="Roster", data=push_data)
                             st.cache_data.clear()
                             st.rerun()
-
                 with arc_tab2:
                     inactive_athletes = roster_data[~roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"])]
                     restore_dict = {row["Username"]: f"{row['First_Name']} {row['Last_Name']}" for _, row in inactive_athletes.iterrows()}
-                    
-                    if not restore_dict:
-                        st.info("There are no archived members to restore.")
+                    if not restore_dict: st.info("There are no archived members to restore.")
                     else:
                         user_to_restore = st.selectbox("Select Member to Restore:", options=list(restore_dict.keys()), format_func=lambda x: restore_dict[x])
                         if st.button("Restore Member"):
@@ -359,35 +352,119 @@ def home_page():
                             conn.update(worksheet="Roster", data=push_data)
                             st.cache_data.clear()
                             st.rerun()
-
                 with arc_tab3:
-                    st.warning("This will instantly archive all active runners whose Grade Level is currently calculated as '12th'.")
-                    
+                    st.warning("This will archive all active runners whose Grade Level is calculated as '12th'.")
                     active_df = roster_data[roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"])].copy()
                     active_df["Grade"] = active_df.get("Grad_Year", "Unknown").apply(get_grade_level)
                     seniors = active_df[active_df["Grade"] == "12th"]
-                    
-                    if seniors.empty:
-                        st.info("No active seniors found.")
+                    if seniors.empty: st.info("No active seniors found.")
                     else:
-                        st.markdown("**The following seniors will be archived:**")
-                        for _, senior in seniors.iterrows():
-                            st.markdown(f"- {senior['First_Name']} {senior['Last_Name']}")
-                            
+                        for _, senior in seniors.iterrows(): st.markdown(f"- {senior['First_Name']} {senior['Last_Name']}")
                         if st.button("Confirm: Archive All Seniors"):
                             for _, senior in seniors.iterrows():
                                 s_idx = roster_data.index[roster_data['Username'] == senior['Username']].tolist()[0]
                                 roster_data.at[s_idx, 'Active'] = "FALSE"
-                                
                             push_data = roster_data.drop(columns=["Active_Clean"]) if "Active_Clean" in roster_data.columns else roster_data
-                            with st.spinner("Archiving seniors..."):
-                                conn.update(worksheet="Roster", data=push_data)
+                            with st.spinner("Archiving seniors..."): conn.update(worksheet="Roster", data=push_data)
                             st.cache_data.clear()
                             st.rerun()
 
         with tab3:
-            st.subheader("Data Entry Command Center")
-            st.info("Coming soon: A secure form to add new race times directly to the Google Sheet without ever leaving this app.")
+            st.subheader("Race Data Entry")
+            st.markdown("Set your Meet & Race details first, then add runners to it rapid-fire.")
+            
+            # --- STEP 1: SET MEET CONTEXT ---
+            with st.expander("📍 Step 1: Set Meet Details", expanded=not st.session_state["meet_context"]["locked"]):
+                ctx_col1, ctx_col2 = st.columns(2)
+                with ctx_col1: 
+                    meet_input = st.text_input("Meet Name", value=st.session_state["meet_context"]["meet_name"], placeholder="e.g., State Championship")
+                    race_input = st.text_input("Race Category", value=st.session_state["meet_context"]["race_name"], placeholder="e.g., Boys Varsity, Girls JV")
+                with ctx_col2:
+                    date_input = st.date_input("Date", value=st.session_state["meet_context"]["date"])
+                    dist_opts = ["5K", "2 Mile", "Other"]
+                    dist_idx = dist_opts.index(st.session_state["meet_context"]["distance"]) if st.session_state["meet_context"]["distance"] in dist_opts else 0
+                    dist_input = st.selectbox("Distance", dist_opts, index=dist_idx)
+                
+                if st.button("Lock Meet Details & Start Entering Times"):
+                    if not meet_input or not race_input:
+                        st.error("Please enter both Meet Name and Race Category.")
+                    else:
+                        st.session_state["meet_context"].update({
+                            "locked": True, "meet_name": meet_input, "race_name": race_input,
+                            "date": date_input, "distance": dist_input
+                        })
+                        st.rerun()
+
+            # --- STEP 2: ADD RESULTS TO LOCKED CONTEXT ---
+            if st.session_state["meet_context"]["locked"]:
+                st.success(f"**Current Race:** {st.session_state['meet_context']['meet_name']} - {st.session_state['meet_context']['race_name']} ({st.session_state['meet_context']['distance']} on {st.session_state['meet_context']['date'].strftime('%m/%d/%Y')})")
+                
+                if st.button("Unlock to Change Meet/Race"):
+                    st.session_state["meet_context"]["locked"] = False
+                    st.rerun()
+                
+                st.markdown("---")
+                st.subheader("🏃 Log Runner Times")
+                
+                active_athletes = roster_data[(roster_data["Role"].str.upper() == "ATHLETE") & 
+                                              (roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"]))].copy()
+                
+                active_athletes = active_athletes.sort_values(by=["Gender", "Last_Name"])
+                runner_dict = {row["Username"]: f"{row['First_Name']} {row['Last_Name']} ({row.get('Gender', 'N/A')})" for _, row in active_athletes.iterrows()}
+                
+                with st.form("add_race_result_form", clear_on_submit=True):
+                    runner_selected = st.selectbox("Select Runner:", options=list(runner_dict.keys()), format_func=lambda x: runner_dict[x])
+                    
+                    time_col1, time_col2, time_col3 = st.columns(3)
+                    with time_col1:
+                        m1_time = st.text_input("Mile 1 Split", placeholder="e.g., 5:30")
+                    with time_col2:
+                        if st.session_state["meet_context"]["distance"] == "5K":
+                            m2_time = st.text_input("Mile 2 Split", placeholder="e.g., 11:15")
+                        else:
+                            m2_time = "" # Hide if it's a 2 Mile race
+                            st.info("Mile 2 Split hidden for 2 Mile races.")
+                    with time_col3:
+                        total_time = st.text_input("Total Finish Time", placeholder="e.g., 17:45")
+                        
+                    if st.form_submit_button("Save Result & Next"):
+                        if not total_time:
+                            st.error("Total Finish Time is required.")
+                        else:
+                            new_race_row = pd.DataFrame([{
+                                "Date": st.session_state["meet_context"]["date"].strftime("%Y-%m-%d"),
+                                "Meet_Name": st.session_state["meet_context"]["meet_name"],
+                                "Race_Name": st.session_state["meet_context"]["race_name"],
+                                "Distance": st.session_state["meet_context"]["distance"],
+                                "Username": runner_selected,
+                                "Mile_1": m1_time,
+                                "Mile_2": m2_time,
+                                "Total_Time": total_time
+                            }])
+                            
+                            updated_races = pd.concat([races_data, new_race_row], ignore_index=True)
+                            
+                            with st.spinner(f"Saving time for {runner_dict[runner_selected]}..."):
+                                conn.update(worksheet="Races", data=updated_races)
+                            
+                            st.success(f"Saved {total_time} for {runner_dict[runner_selected]}!")
+                            st.cache_data.clear()
+                            st.rerun()
+                
+                # --- MINI VIEW: SHOW RECENT ENTRIES ---
+                st.markdown("#### Previously Entered for this Race")
+                current_meet = st.session_state["meet_context"]["meet_name"]
+                current_race = st.session_state["meet_context"]["race_name"]
+                
+                # Filter races sheet for just this exact meet and race
+                recent_entries = races_data[(races_data["Meet_Name"] == current_meet) & (races_data["Race_Name"] == current_race)].copy()
+                if not recent_entries.empty:
+                    # Map usernames to real names for easier reading
+                    athlete_lookup = {row["Username"]: f"{row['First_Name']} {row['Last_Name']}" for _, row in roster_data.iterrows()}
+                    recent_entries["Athlete"] = recent_entries["Username"].map(athlete_lookup)
+                    
+                    display_cols = ["Athlete", "Mile_1", "Mile_2", "Total_Time"] if st.session_state["meet_context"]["distance"] == "5K" else ["Athlete", "Mile_1", "Total_Time"]
+                    st.dataframe(recent_entries[display_cols], hide_index=True, use_container_width=True)
 
     else:
         st.header("Race Results & Analytics")

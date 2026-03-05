@@ -1,30 +1,66 @@
 import streamlit as st
 import pandas as pd
 import datetime
+import plotly.express as px  # For interactive charting
 from streamlit_gsheets import GSheetsConnection
 
-# --- PAGE SETUP & CSS ---
-st.set_page_config(page_title="MCXC Team Dashboard", layout="centered")
+# ==========================================
+# --- 1. APP SETUP & VISUAL THEMES ---
+# ==========================================
+st.set_page_config(page_title="MCXC Team Dashboard", layout="centered", page_icon="🏃")
 
-st.markdown("""
+# Define our visual themes
+THEMES = {
+    "MCXC Classic": {
+        "bar": "linear-gradient(to right, #8B2331, #0C223F, #C7B683)", 
+        "bg": "rgba(139, 35, 49, 0.05)", 
+        "border": "rgba(139, 35, 49, 0.2)",
+        "line": "#8B2331"
+    },
+    "Neon Runner": {
+        "bar": "linear-gradient(to right, #FF007F, #7928CA, #FF007F)", 
+        "bg": "rgba(121, 40, 202, 0.05)", 
+        "border": "rgba(255, 0, 127, 0.3)",
+        "line": "#FF007F"
+    },
+    "Ocean Pace": {
+        "bar": "linear-gradient(to right, #00C9FF, #92FE9D)", 
+        "bg": "rgba(0, 201, 255, 0.05)", 
+        "border": "rgba(0, 201, 255, 0.3)",
+        "line": "#00C9FF"
+    }
+}
+
+# Ensure a theme is always selected in session state
+if "theme" not in st.session_state:
+    st.session_state["theme"] = "MCXC Classic"
+
+current_theme = THEMES[st.session_state["theme"]]
+
+# Inject dynamic CSS based on the selected theme
+st.markdown(f"""
     <style>
-        .color-bar {
+        .color-bar {{
             height: 8px;
-            background: linear-gradient(to right, #8B2331, #0C223F, #C7B683);
+            background: {current_theme['bar']};
             margin-bottom: 2rem;
             border-radius: 4px;
-        }
-        div[data-testid="metric-container"] {
-            background-color: rgba(139, 35, 49, 0.05);
-            border: 1px solid rgba(139, 35, 49, 0.2);
+        }}
+        div[data-testid="metric-container"] {{
+            background-color: {current_theme['bg']};
+            border: 1px solid {current_theme['border']};
             padding: 10px;
             border-radius: 8px;
-        }
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }}
     </style>
     <div class="color-bar"></div>
 """, unsafe_allow_html=True)
 
-# --- MATH & LOGIC FUNCTIONS ---
+
+# ==========================================
+# --- 2. MATH & LOGIC FUNCTIONS ---
+# ==========================================
 def time_to_seconds(time_str):
     if pd.isna(time_str) or time_str == "" or str(time_str).strip() == "": return 0
     time_str = str(time_str).strip()
@@ -40,6 +76,7 @@ def seconds_to_time(seconds):
     return f"{mins}:{secs:02d}"
 
 def parse_fast_time(val, mode):
+    # Handles numbers typed without colons (e.g., 530 instead of 5:30)
     if pd.isna(val) or str(val).strip() == "": return ""
     val_str = str(val).strip()
     if ":" in val_str: return val_str
@@ -78,28 +115,39 @@ def get_grade_level(grad_year_str):
     elif grade > 12: return "Alumni"
     else: return "Unknown"
 
-# --- SECURE DATABASE CONNECTION ---
+
+# ==========================================
+# --- 3. DATABASE CONNECTION & CLEANUP ---
+# ==========================================
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+# Read the tabs from Google Sheets
 roster_data = conn.read(worksheet="Roster", ttl=600)
 races_data = conn.read(worksheet="Races", ttl=600)
 workouts_data = conn.read(worksheet="Workouts", ttl=600)
 
+# Clean up basic Roster data to prevent errors
 if "Active" in roster_data.columns: roster_data["Active_Clean"] = roster_data["Active"].astype(str).str.strip().str.upper()
 else: roster_data["Active_Clean"] = "TRUE"
 if "Gender" not in roster_data.columns: roster_data["Gender"] = "N/A"
 
+# Ensure all expected columns exist in Races
 expected_race_cols = ["Date", "Meet_Name", "Race_Name", "Distance", "Username", "Mile_1", "Mile_2", "Total_Time", "Weight"]
 for col in expected_race_cols:
     if col not in races_data.columns: 
         races_data[col] = 1.0 if col == "Weight" else ""
 races_data["Weight"] = pd.to_numeric(races_data["Weight"], errors="coerce").fillna(1.0)
 
+# Ensure all expected columns exist in Workouts
 expected_workout_cols = ["Date", "Workout_Type", "Rep_Distance", "Weather", "Username", "Status", "Splits"]
 for col in expected_workout_cols:
     if col not in workouts_data.columns: workouts_data[col] = ""
 
-# --- SESSION STATE ---
+
+# ==========================================
+# --- 4. SESSION STATE MANAGEMENT ---
+# ==========================================
+# Keep track of who is logged in and what they are doing
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
     for key in ["username", "first_name", "last_name", "role"]: st.session_state[key] = ""
@@ -115,13 +163,18 @@ def logout():
     for key in ["username", "first_name", "last_name", "role"]: st.session_state[key] = ""
     for key in ["current_meet", "current_meet_date", "current_race", "current_distance"]: st.session_state[key] = None
 
-# --- HELPER FUNCTIONS: UI COMPONENTS ---
+
+# ==========================================
+# --- 5. VISUAL UI COMPONENTS & CHARTS ---
+# ==========================================
 def show_rankings_tab():
     st.subheader("Team Rankings")
     r_col1, r_col2, r_col3 = st.columns(3)
-    with r_col1: r_gender = st.selectbox("Category", ["Men's", "Women's"])
-    with r_col2: r_dist = st.selectbox("Distance", ["5K", "2 Mile"])
-    with r_col3: r_metric = st.selectbox("Rank By", ["Weighted Average", "Personal Record (PR)"])
+    
+    # Bug Fix applied: Unique keys added here!
+    with r_col1: r_gender = st.selectbox("Category", ["Men's", "Women's"], key="rankings_category")
+    with r_col2: r_dist = st.selectbox("Distance", ["5K", "2 Mile"], key="rankings_distance")
+    with r_col3: r_metric = st.selectbox("Rank By", ["Weighted Average", "Personal Record (PR)"], key="rankings_metric")
         
     target_gender = "Male" if r_gender == "Men's" else "Female"
     
@@ -138,7 +191,7 @@ def show_rankings_tab():
     
     results = []
     for user, group in merged.groupby("Username"):
-        valid_races = group[group["Weight"] > 0] # Filter out explicitly ignored races
+        valid_races = group[group["Weight"] > 0] 
         if valid_races.empty: continue
             
         if r_metric == "Personal Record (PR)":
@@ -164,11 +217,43 @@ def show_rankings_tab():
     
     st.dataframe(display_df, hide_index=True, use_container_width=True)
 
+def plot_athlete_progress(user_races):
+    # Filter only for 5K races with valid times
+    df = user_races[(user_races["Distance"].str.upper() == "5K") & (user_races["Time_Sec"] > 0)].copy()
+    if df.empty or len(df) < 2:
+        return # Not enough data to draw a meaningful line chart
+    
+    # Prep data for Plotly
+    df["Date_Obj"] = pd.to_datetime(df["Date"], errors='coerce')
+    df = df.sort_values("Date_Obj")
+    df["Time_Min"] = df["Time_Sec"] / 60.0  # Convert to minutes for the Y-axis scale
+    
+    # Create the interactive line chart
+    fig = px.line(
+        df, x="Date_Obj", y="Time_Min", markers=True, 
+        title="📈 5K Progression",
+        hover_data={"Date_Obj": "|%b %d, %Y", "Time_Min": False, "Total_Time": True, "Meet_Name": True}
+    )
+    
+    # Reverse the Y-axis so FASTER times (lower numbers) are visually HIGHER on the chart
+    fig.update_yaxes(title="Finish Time (Minutes)", autorange="reversed")
+    fig.update_xaxes(title="Race Date")
+    
+    # Theme color formatting
+    theme_line_color = THEMES[st.session_state["theme"]]["line"]
+    fig.update_traces(line_color=theme_line_color, line_width=3, marker_size=8)
+    
+    st.plotly_chart(fig, use_container_width=True)
+    st.markdown("---")
+
 def display_athlete_races(target_username):
     user_races = races_data[races_data["Username"] == target_username].copy()
     if not user_races.empty:
         user_races["Time_Sec"] = user_races["Total_Time"].apply(time_to_seconds)
-        user_races = user_races[user_races["Time_Sec"] > 0] # Hide empties
+        user_races = user_races[user_races["Time_Sec"] > 0] # Hide empty rows
+        
+        # Display the visual chart first!
+        plot_athlete_progress(user_races)
         
         def calculate_avg_pace(row):
             distance_mi = 3.10686 if str(row["Distance"]).upper() == "5K" else 2.0
@@ -210,7 +295,10 @@ def display_athlete_workouts(target_username):
     else:
         st.info("No workout data found yet for this season.")
 
-# --- LOGIN & PASSWORD RESET PAGES ---
+
+# ==========================================
+# --- 6. LOGIN & SECURITY PAGES ---
+# ==========================================
 def login_page():
     st.title("MCXC Team Dashboard")
     st.markdown("Please log in to access your training data.")
@@ -248,15 +336,30 @@ def password_reset_page():
                 st.session_state["first_login"] = False
                 st.rerun()
 
-# --- HOME PAGE (DASHBOARD ROUTER) ---
+
+# ==========================================
+# --- 7. HOME PAGE ROUTER (DASHBOARD) ---
+# ==========================================
 def home_page():
     user_role = str(st.session_state["role"]).capitalize()
     
-    col_header1, col_header2 = st.columns([3, 1])
-    with col_header1: st.title(f"{user_role}: {st.session_state['first_name']} {st.session_state['last_name']}")
-    with col_header2: st.button("Log Out", on_click=logout, use_container_width=True)
+    # SIDEBAR logic for Themes & Settings
+    with st.sidebar:
+        st.subheader("⚙️ Settings")
+        selected_theme = st.selectbox("App Theme", list(THEMES.keys()), index=list(THEMES.keys()).index(st.session_state["theme"]))
+        if selected_theme != st.session_state["theme"]:
+            st.session_state["theme"] = selected_theme
+            st.rerun()
+        st.markdown("---")
+        st.button("Log Out", on_click=logout, use_container_width=True)
+    
+    # Main Header
+    st.title(f"{user_role}: {st.session_state['first_name']} {st.session_state['last_name']}")
     st.markdown("---")
     
+    # ----------------------------------
+    # COACH VIEW
+    # ----------------------------------
     if user_role.upper() == "COACH":
         tab1, tab2, tab3, tab4 = st.tabs(["Athlete Lookup", "Roster Management", "Data Entry", "Team Rankings"])
         
@@ -428,14 +531,15 @@ def home_page():
                 else:
                     with st.form("weights_form"):
                         updated_weights = {}
-                        for _, row in unique_races.iterrows():
+                        # Bug Fix applied: Using index as unique key!
+                        for index, row in unique_races.iterrows():
                             meet = row["Meet_Name"]
                             race = row["Race_Name"]
                             date = row["Date"]
                             current_w = row["Weight"]
                             label = f"{pd.to_datetime(date, errors='coerce').strftime('%m/%d/%Y')} | {meet} - {race} ({row['Distance']})"
                             
-                            new_w = st.number_input(label, value=float(current_w), step=0.5, min_value=0.0)
+                            new_w = st.number_input(label, value=float(current_w), step=0.5, min_value=0.0, key=f"weight_input_{index}")
                             updated_weights[(meet, race, date)] = new_w
                             
                         if st.form_submit_button("Save Weights", type="primary"):
@@ -740,6 +844,9 @@ def home_page():
         with tab4:
             show_rankings_tab()
 
+    # ----------------------------------
+    # ATHLETE VIEW
+    # ----------------------------------
     else:
         st.header("Training Dashboard")
         st.markdown("Your historical training and race data is below.")
@@ -747,7 +854,6 @@ def home_page():
         tab_dash, tab_rankings = st.tabs(["My Dashboard", "Team Rankings"])
         
         with tab_dash:
-            # --- TEASER METRICS ---
             user_races = races_data[races_data["Username"] == st.session_state["username"]].copy()
             user_workouts = workouts_data[workouts_data["Username"] == st.session_state["username"]].copy()
             
@@ -764,7 +870,6 @@ def home_page():
                     
             col_m3.metric(label="5K PR (This Season)", value=fastest_5k)
             st.markdown("<br>", unsafe_allow_html=True)
-            # ---------------------
             
             sub_races, sub_workouts = st.tabs(["Race Results", "Workouts"])
             with sub_races: display_athlete_races(st.session_state["username"])
@@ -773,6 +878,9 @@ def home_page():
         with tab_rankings:
             show_rankings_tab()
 
+# ==========================================
+# --- 8. INITIALIZATION LOGIC ---
+# ==========================================
 if not st.session_state["logged_in"]: login_page()
 elif st.session_state["first_login"]: password_reset_page()
 else: home_page()

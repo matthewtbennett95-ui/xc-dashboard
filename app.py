@@ -49,12 +49,10 @@ def parse_fast_time(val, mode):
     num = int(val_str)
     
     if "Total Seconds" in mode:
-        # e.g. "104" = 104 seconds = 1:44
         mins = num // 60
         secs = num % 60
         return f"{mins}:{secs:02d}"
     else:
-        # "Mins/Secs" mode. e.g. "104" = 1:04, "530" = 5:30
         if len(val_str) <= 2:
             mins = num // 60
             secs = num % 60
@@ -62,7 +60,6 @@ def parse_fast_time(val, mode):
         else:
             secs = int(val_str[-2:])
             mins = int(val_str[:-2])
-            # Handle overflow just in case (e.g. typing 175 -> 2:15)
             mins += secs // 60
             secs = secs % 60
             return f"{mins}:{secs:02d}"
@@ -123,7 +120,7 @@ def logout():
     for key in ["username", "first_name", "last_name", "role"]: st.session_state[key] = ""
     for key in ["current_meet", "current_meet_date", "current_race", "current_distance"]: st.session_state[key] = None
 
-# --- HELPER FUNCTION: DRAW RACE TABLES ---
+# --- HELPER FUNCTIONS: DRAW TABLES ---
 def display_athlete_races(target_username):
     user_races = races_data[races_data["Username"] == target_username].copy()
     if not user_races.empty:
@@ -156,6 +153,23 @@ def display_athlete_races(target_username):
             st.markdown("<br>", unsafe_allow_html=True)
     else:
         st.info("No race data found yet for this season.")
+
+def display_athlete_workouts(target_username):
+    user_workouts = workouts_data[workouts_data["Username"] == target_username].copy()
+    if not user_workouts.empty:
+        user_workouts["Date_Obj"] = pd.to_datetime(user_workouts["Date"], errors='coerce')
+        user_workouts = user_workouts.sort_values(by="Date_Obj", ascending=False)
+        user_workouts["Date"] = user_workouts["Date_Obj"].dt.strftime('%m/%d/%Y').fillna("Unknown")
+        
+        display_cols = ["Date", "Workout_Type", "Rep_Distance", "Status", "Splits", "Weather"]
+        rename_dict = {
+            "Workout_Type": "Type", 
+            "Rep_Distance": "Details",
+        }
+        clean_table = user_workouts[display_cols].rename(columns=rename_dict)
+        st.dataframe(clean_table, hide_index=True, use_container_width=True)
+    else:
+        st.info("No workout data found yet for this season.")
 
 # --- LOGIN & PASSWORD RESET PAGES ---
 def login_page():
@@ -220,7 +234,11 @@ def home_page():
             if not athlete_dict: st.info("No active athletes match this filter.")
             else:
                 selected_username = st.selectbox("Select an Athlete:", options=list(athlete_dict.keys()), format_func=lambda x: athlete_dict[x])
-                if selected_username: display_athlete_races(selected_username)
+                if selected_username: 
+                    st.markdown("---")
+                    sub_tab1, sub_tab2 = st.tabs(["Race Results", "Workouts"])
+                    with sub_tab1: display_athlete_races(selected_username)
+                    with sub_tab2: display_athlete_workouts(selected_username)
                 
         with tab2:
             st.subheader("Roster Management")
@@ -492,12 +510,13 @@ def home_page():
                             w_weather = st.text_input("Weather (Temp/Conditions)", placeholder="e.g., 75F, Humid")
                             calc_mode = st.radio("Time Entry Mode:", ["Individual Splits", "Continuous Clock (Elapsed)"], index=0)
                             restart_rep = 0
-                            if calc_mode == "Continuous Clock (Elapsed)":
+                            
+                            # ONLY SHOW RESTART BOX IF "SPLIT" IS SELECTED
+                            if calc_mode == "Continuous Clock (Elapsed)" and selected_dist == "Split":
                                 restart_rep = st.number_input("Restart clock at Rep # (0 = never)", min_value=0, max_value=20, value=0, help="For a 2+1 split (3 total segments), set this to 3 so the 3rd column starts from 0.")
 
                         st.markdown("---")
                         
-                        # --- NEW TOGGLE SWITCH ---
                         st.markdown("**Number-Only Entry Format**")
                         time_entry_format = st.radio(
                             "How should the app read numbers typed without a colon?",
@@ -544,7 +563,6 @@ def home_page():
                                         continue
                                     
                                     if len(raw_times) > 0:
-                                        # PASS THE TOGGLE SETTING INTO THE PARSER
                                         parsed_seconds = [time_to_seconds(parse_fast_time(t, time_entry_format)) for t in raw_times]
                                         final_splits = []
                                         
@@ -594,8 +612,15 @@ def home_page():
 
     else:
         st.header("Training Dashboard")
-        st.markdown("Your historical race data is below. Workout integration coming soon.")
-        display_athlete_races(st.session_state["username"])
+        st.markdown("Your historical training and race data is below.")
+        
+        tab_races, tab_workouts = st.tabs(["Race Results", "Workouts"])
+        
+        with tab_races:
+            display_athlete_races(st.session_state["username"])
+            
+        with tab_workouts:
+            display_athlete_workouts(st.session_state["username"])
 
 if not st.session_state["logged_in"]: login_page()
 elif st.session_state["first_login"]: password_reset_page()

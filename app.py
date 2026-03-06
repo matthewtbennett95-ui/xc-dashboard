@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import datetime
 import requests
-import plotly.express as px  # For interactive charting
+import plotly.express as px  
 from streamlit_gsheets import GSheetsConnection
 
 # ==========================================
@@ -10,26 +10,24 @@ from streamlit_gsheets import GSheetsConnection
 # ==========================================
 st.set_page_config(page_title="MCXC Team Dashboard", layout="centered")
 
-# Your official school colors
 MCXC_CRIMSON = "#8B2331"
 MCXC_NAVY = "#0C223F"
 MCXC_GOLD = "#C7B683"
 
-# Define expanded visual themes (Now with dynamic Header colors!)
 THEMES = {
     "MCXC Classic (Light)": {
         "bar": f"linear-gradient(to right, {MCXC_CRIMSON}, {MCXC_NAVY}, {MCXC_GOLD})", 
         "metric_bg": "rgba(139, 35, 49, 0.05)", "metric_border": "rgba(139, 35, 49, 0.2)",
         "line": MCXC_CRIMSON, "app_bg": "#FFFFFF", "text": "#31333F", 
-        "header": MCXC_NAVY, # Navy headers in light mode
+        "header": MCXC_NAVY, 
         "sidebar_bg": "#F0F2F6", "plotly_template": "plotly_white",
         "is_dark": False
     },
-    "MCXC Elite (Dark)": {  # NEW: True School-Color Dark Mode!
+    "MCXC Elite (Dark)": {  
         "bar": f"linear-gradient(to right, {MCXC_CRIMSON}, {MCXC_GOLD}, {MCXC_CRIMSON})", 
         "metric_bg": "rgba(199, 182, 131, 0.1)", "metric_border": "rgba(199, 182, 131, 0.3)",
         "line": MCXC_GOLD, "app_bg": MCXC_NAVY, "text": "#F0F2F6", 
-        "header": MCXC_GOLD, # Gold headers popping off the Navy background!
+        "header": MCXC_GOLD, 
         "sidebar_bg": "#08182D", "plotly_template": "plotly_dark",
         "is_dark": True
     },
@@ -37,7 +35,7 @@ THEMES = {
         "bar": "linear-gradient(to right, #FF4B4B, #FF904F)", 
         "metric_bg": "rgba(255, 75, 75, 0.1)", "metric_border": "rgba(255, 75, 75, 0.3)",
         "line": "#FF4B4B", "app_bg": "#0E1117", "text": "#FFFFFF", 
-        "header": MCXC_GOLD, # Added your Gold here too!
+        "header": MCXC_GOLD, 
         "sidebar_bg": "#1A1C24", "plotly_template": "plotly_dark",
         "is_dark": True
     },
@@ -51,60 +49,48 @@ THEMES = {
     }
 }
 
-# Ensure a theme is always selected in session state
 if "theme" not in st.session_state:
     st.session_state["theme"] = "MCXC Classic (Light)"
 
 current_theme = THEMES[st.session_state["theme"]]
 
-# Generate aggressive dark mode CSS overrides if a dark theme is selected
 dark_mode_css = ""
 if current_theme["is_dark"]:
     dark_mode_css = f"""
-        /* Force Input Boxes, Dropdowns, and number inputs to be dark */
         [data-baseweb="input"] > div, [data-baseweb="select"] > div, [data-baseweb="base-input"] {{
             background-color: rgba(0,0,0,0.4) !important;
             color: #FFFFFF !important;
             border-color: rgba(255,255,255,0.2) !important;
         }}
-        /* Force Form containers to be dark */
         [data-testid="stForm"] {{
             background-color: {current_theme['sidebar_bg']} !important;
             border-color: rgba(255,255,255,0.1) !important;
         }}
-        /* Ensure text typed inside inputs stays white */
         input, textarea, select {{
             color: #FFFFFF !important;
         }}
-        /* Invert Dataframes/Data Editors to create a synthetic dark mode grid */
         [data-testid="stDataFrame"], [data-testid="stDataEditor"] {{
             filter: invert(0.92) hue-rotate(180deg);
         }}
     """
 
-# Inject dynamic CSS based on the selected theme
 st.markdown(f"""
     <style>
-        /* Main App Background */
         .stApp {{
             background-color: {current_theme['app_bg']} !important;
         }}
-        /* Sidebar Background */
         [data-testid="stSidebar"] {{
             background-color: {current_theme['sidebar_bg']} !important;
         }}
-        /* Force Header to be transparent so background shows through */
         [data-testid="stHeader"] {{
             background-color: transparent !important;
         }}
-        /* Top Gradient Bar */
         .color-bar {{
             height: 8px;
             background: {current_theme['bar']};
             margin-bottom: 2rem;
             border-radius: 4px;
         }}
-        /* Metric Containers */
         div[data-testid="metric-container"] {{
             background-color: {current_theme['metric_bg']} !important;
             border: 1px solid {current_theme['metric_border']} !important;
@@ -113,20 +99,17 @@ st.markdown(f"""
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }}
         
-        /* OVERRIDE HEADERS TO BE GOLD/THEME COLOR */
         h1, h2, h3, h4, h5, h6,
         .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, 
         [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {{
             color: {current_theme['header']} !important;
         }}
 
-        /* Broadly override primary text colors for normal paragraphs/labels */
         .stMarkdown p, .stMarkdown li, .stMarkdown span, div[data-testid="stCaptionContainer"],
         label, .stMetricValue, div[data-testid="stTabs"] button p {{
             color: {current_theme['text']} !important;
         }}
         
-        /* Fix button hover disappearing acts */
         div.stButton > button:hover, div.stFormSubmitButton > button:hover {{
             border-color: {current_theme['line']} !important;
             color: {current_theme['line']} !important;
@@ -139,7 +122,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# --- 2. MATH & LOGIC FUNCTIONS ---
+# --- 2. MATH, LOGIC, & WEATHER ---
 # ==========================================
 def time_to_seconds(time_str):
     if pd.isna(time_str) or time_str == "" or str(time_str).strip() == "": return 0
@@ -156,7 +139,6 @@ def seconds_to_time(seconds):
     return f"{mins}:{secs:02d}"
 
 def parse_fast_time(val, mode):
-    # Handles numbers typed without colons (e.g., 530 instead of 5:30)
     if pd.isna(val) or str(val).strip() == "": return ""
     val_str = str(val).strip()
     if ":" in val_str: return val_str
@@ -195,21 +177,23 @@ def get_grade_level(grad_year_str):
     elif grade > 12: return "Alumni"
     else: return "Unknown"
 
-# ==========================================
-# --- WEATHER API HELPER ---
-# ==========================================
-@st.cache_data(ttl=86400) # Cache data for 24 hours to keep the app blazing fast
+@st.cache_data(ttl=86400) 
 def get_weather_for_date(date_str):
-    # UPDATE THESE TO YOUR SCHOOL'S EXACT COORDINATES
     LATITUDE = 34.077604
     LONGITUDE = -83.877289
     
     try:
-        # Format date for the API (YYYY-MM-DD)
-        d = pd.to_datetime(date_str).strftime('%Y-%m-%d')
+        d_obj = pd.to_datetime(date_str)
+        d = d_obj.strftime('%Y-%m-%d')
         
-        url = f"https://archive-api.open-meteo.com/v1/archive?latitude={LATITUDE}&longitude={LONGITUDE}&start_date={d}&end_date={d}&daily=temperature_2m_max,precipitation_sum&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America/New_York"
+        days_ago = (pd.to_datetime("today") - d_obj).days
         
+        # Smart switching: Archive API for history, Forecast API for recent dates
+        if days_ago > 60:
+            url = f"https://archive-api.open-meteo.com/v1/archive?latitude={LATITUDE}&longitude={LONGITUDE}&start_date={d}&end_date={d}&daily=temperature_2m_max,precipitation_sum&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America/New_York"
+        else:
+            url = f"https://api.open-meteo.com/v1/forecast?latitude={LATITUDE}&longitude={LONGITUDE}&start_date={d}&end_date={d}&daily=temperature_2m_max,precipitation_sum&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America/New_York"
+            
         res = requests.get(url)
         if res.status_code == 200:
             data = res.json()
@@ -217,9 +201,8 @@ def get_weather_for_date(date_str):
             precip = data.get('daily', {}).get('precipitation_sum', [None])[0]
             
             if temp is None:
-                return "No Data"
+                return "Can't access weather data"
                 
-            # Keep it clean and text-only (no emojis)
             desc = f"{round(temp)}°F"
             if precip and precip > 0.05:
                 desc += f" ({round(precip, 1)}in Rain)"
@@ -227,22 +210,19 @@ def get_weather_for_date(date_str):
                 desc += " (Dry)"
                 
             return desc
-        return "API Error"
+        return "Can't access weather data"
     except Exception as e:
-        return "N/A"
+        return "Can't access weather data"
 
 # ==========================================
 # --- 3. DATABASE CONNECTION & CLEANUP ---
 # ==========================================
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# Read the tabs from Google Sheets and instantly drop empty rows
 roster_data = conn.read(worksheet="Roster", ttl=600).dropna(how="all")
 races_data = conn.read(worksheet="Races", ttl=600).dropna(how="all")
 workouts_data = conn.read(worksheet="Workouts", ttl=600).dropna(how="all")
 
-# CRITICAL BUG FIX: Strip "Ghost Rows"
-# Removes blank rows that Google Sheets generates by default so they don't crash the app
 if "Username" in roster_data.columns:
     roster_data = roster_data[roster_data["Username"].astype(str).str.strip() != ""]
     roster_data = roster_data.dropna(subset=["Username"])
@@ -255,7 +235,6 @@ if "Username" in workouts_data.columns:
     workouts_data = workouts_data[workouts_data["Username"].astype(str).str.strip() != ""]
     workouts_data = workouts_data.dropna(subset=["Username"])
 
-# Clean up basic Roster data to prevent errors
 if "Active" in roster_data.columns: 
     roster_data["Active_Clean"] = roster_data["Active"].astype(str).str.strip().str.upper()
 else: 
@@ -264,14 +243,12 @@ else:
 if "Gender" not in roster_data.columns: 
     roster_data["Gender"] = "N/A"
 
-# Ensure all expected columns exist in Races
 expected_race_cols = ["Date", "Meet_Name", "Race_Name", "Distance", "Username", "Mile_1", "Mile_2", "Total_Time", "Weight"]
 for col in expected_race_cols:
     if col not in races_data.columns: 
         races_data[col] = 1.0 if col == "Weight" else ""
 races_data["Weight"] = pd.to_numeric(races_data["Weight"], errors="coerce").fillna(1.0)
 
-# Ensure all expected columns exist in Workouts
 expected_workout_cols = ["Date", "Workout_Type", "Rep_Distance", "Weather", "Username", "Status", "Splits"]
 for col in expected_workout_cols:
     if col not in workouts_data.columns: 
@@ -280,7 +257,6 @@ for col in expected_workout_cols:
 # ==========================================
 # --- 4. SESSION STATE MANAGEMENT ---
 # ==========================================
-# Keep track of who is logged in and what they are doing
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
     for key in ["username", "first_name", "last_name", "role"]: st.session_state[key] = ""
@@ -303,14 +279,12 @@ def logout():
 def show_rankings_tab():
     st.subheader("Team Rankings & Season Grid")
     
-    # Filters for Gender and Distance
     r_col1, r_col2 = st.columns(2)
     with r_col1: r_gender = st.selectbox("Category", ["Men's", "Women's"], key="rankings_category")
     with r_col2: r_dist = st.selectbox("Distance", ["5K", "2 Mile"], key="rankings_distance")
         
     target_gender = "Male" if r_gender == "Men's" else "Female"
     
-    # Merge Races and Roster
     merged = pd.merge(races_data, roster_data[["Username", "First_Name", "Last_Name", "Gender", "Active_Clean"]], on="Username", how="inner")
     merged = merged[merged["Active_Clean"].isin(["TRUE", "1", "1.0"])]
     merged = merged[(merged["Gender"].str.title() == target_gender) & (merged["Distance"].str.upper() == r_dist.upper())]
@@ -319,7 +293,6 @@ def show_rankings_tab():
         st.info("No race data found for this category.")
         return
     
-    # Sub-Tabs for different viewing modes
     tab_lead, tab_grid = st.tabs(["Leaderboard", "Master Grid"])
     
     with tab_lead:
@@ -330,13 +303,13 @@ def show_rankings_tab():
         
         results = []
         for user, group in merged.groupby("Username"):
-            valid_races = group[group["Weight"] > 0] # Filter out explicitly ignored races
+            valid_races = group[group["Weight"] > 0] 
             if valid_races.empty: continue
                 
             if r_metric == "Personal Record (PR)":
                 best_time = valid_races["Time_Sec"].min()
                 results.append({"Athlete": f"{group.iloc[0]['First_Name']} {group.iloc[0]['Last_Name']}", "Time_Sec": best_time, "Mark": seconds_to_time(best_time)})
-            else: # Weighted Average
+            else: 
                 total_weight = valid_races["Weight"].sum()
                 if total_weight <= 0: continue
                 weighted_sum = (valid_races["Time_Sec"] * valid_races["Weight"]).sum()
@@ -361,50 +334,37 @@ def show_rankings_tab():
         grid_df = merged.copy()
         grid_df["Athlete"] = grid_df["First_Name"] + " " + grid_df["Last_Name"]
         
-        # Sort chronologically so columns appear in the order the races happened
         grid_df["Date_Obj"] = pd.to_datetime(grid_df["Date"], errors='coerce')
         grid_df = grid_df.sort_values(by="Date_Obj")
         
-        # Create a clean column name like "State Champs (10/15)"
         grid_df["Race_Col"] = grid_df["Meet_Name"] + " (" + grid_df["Date_Obj"].dt.strftime('%m/%d').fillna("") + ")"
         
-        # Capture the chronological order of the races
         ordered_cols = grid_df["Race_Col"].unique().tolist()
         
-        # Pivot the table: Athletes as rows, Races as columns, Times as values
         pivot_df = grid_df.pivot_table(index="Athlete", columns="Race_Col", values="Total_Time", aggfunc="first")
-        
-        # Reorder columns chronologically, fill blank cells with a dash, and reset index to show Athlete column
         pivot_df = pivot_df.reindex(columns=ordered_cols).fillna("-").reset_index()
         
         st.dataframe(pivot_df, hide_index=True, use_container_width=True)
 
 def plot_athlete_progress(user_races):
-    # Filter only for 5K races with valid times
     df = user_races[(user_races["Distance"].str.upper() == "5K") & (user_races["Time_Sec"] > 0)].copy()
     if df.empty or len(df) < 2:
-        return # Not enough data to draw a meaningful line chart
+        return 
     
-    # Prep data for Plotly
     df["Date_Obj"] = pd.to_datetime(df["Date"], errors='coerce')
     df = df.sort_values("Date_Obj")
-    df["Time_Min"] = df["Time_Sec"] / 60.0  # Convert to minutes for the Y-axis scale
+    df["Time_Min"] = df["Time_Sec"] / 60.0  
     
-    # Create the interactive line chart
     fig = px.line(
         df, x="Date_Obj", y="Time_Min", markers=True, 
         title="📈 5K Progression",
         hover_data={"Date_Obj": "|%b %d, %Y", "Time_Min": False, "Total_Time": True, "Meet_Name": True}
     )
     
-    # Reverse the Y-axis so FASTER times (lower numbers) are visually HIGHER on the chart
     fig.update_yaxes(title="Finish Time (Minutes)", autorange="reversed")
     fig.update_xaxes(title="Race Date")
-    
-    # NEW: Apply the selected theme's Plotly template (Dark/Light mode for the chart background)
     fig.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"])
     
-    # Theme color formatting for the actual line
     theme_line_color = THEMES[st.session_state["theme"]]["line"]
     fig.update_traces(line_color=theme_line_color, line_width=3, marker_size=8)
     
@@ -415,9 +375,8 @@ def display_athlete_races(target_username):
     user_races = races_data[races_data["Username"] == target_username].copy()
     if not user_races.empty:
         user_races["Time_Sec"] = user_races["Total_Time"].apply(time_to_seconds)
-        user_races = user_races[user_races["Time_Sec"] > 0] # Hide empty rows
+        user_races = user_races[user_races["Time_Sec"] > 0] 
         
-        # Display the visual chart first!
         plot_athlete_progress(user_races)
         
         def calculate_avg_pace(row):
@@ -452,13 +411,11 @@ def display_athlete_workouts(target_username):
         user_workouts["Date_Obj"] = pd.to_datetime(user_workouts["Date"], errors='coerce')
         user_workouts = user_workouts.sort_values(by="Date_Obj", ascending=False)
         
-        # --- NEW WEATHER LOGIC ---
-        # Automatically fetch weather ONLY if the coach left it blank during Data Entry
+        # Populate missing weather for any older workouts displayed
         for idx, row in user_workouts.iterrows():
             if pd.isna(row["Weather"]) or str(row["Weather"]).strip() == "":
                 user_workouts.at[idx, "Weather"] = get_weather_for_date(row["Date"])
-        # -------------------------
-        
+                
         user_workouts["Date"] = user_workouts["Date_Obj"].dt.strftime('%m/%d/%Y').fillna("Unknown")
         
         display_cols = ["Date", "Workout_Type", "Rep_Distance", "Status", "Splits", "Weather"]
@@ -515,7 +472,6 @@ def password_reset_page():
 def home_page():
     user_role = str(st.session_state["role"]).capitalize()
     
-    # SIDEBAR logic for Themes & Settings
     with st.sidebar:
         st.subheader("⚙️ Settings")
         selected_theme = st.selectbox("App Theme", list(THEMES.keys()), index=list(THEMES.keys()).index(st.session_state["theme"]))
@@ -525,13 +481,9 @@ def home_page():
         st.markdown("---")
         st.button("Log Out", on_click=logout, use_container_width=True)
     
-    # Main Header
     st.title(f"{user_role}: {st.session_state['first_name']} {st.session_state['last_name']}")
     st.markdown("---")
     
-    # ----------------------------------
-    # COACH VIEW
-    # ----------------------------------
     if user_role.upper() == "COACH":
         tab1, tab2, tab3, tab4 = st.tabs(["Athlete Lookup", "Roster Management", "Data Entry", "Team Rankings"])
         
@@ -703,7 +655,6 @@ def home_page():
                 else:
                     with st.form("weights_form"):
                         updated_weights = {}
-                        # Bug Fix applied: Using index as unique key!
                         for index, row in unique_races.iterrows():
                             meet = row["Meet_Name"]
                             race = row["Race_Name"]
@@ -832,7 +783,7 @@ def home_page():
                                 
                             w_reps = st.number_input("Total Max Intervals/Segments Today", min_value=1, max_value=20, value=6)
                         with w_col3:
-                            w_weather = st.text_input("Weather (Temp/Conditions)", placeholder="e.g., 75F, Humid")
+                            # REMOVED MANUAL WEATHER INPUT
                             calc_mode = st.radio("Time Entry Mode:", ["Individual Splits", "Continuous Clock (Elapsed)"], index=0)
                             restart_rep = 0
                             if calc_mode == "Continuous Clock (Elapsed)" and selected_dist == "Split":
@@ -844,8 +795,7 @@ def home_page():
                         time_entry_format = st.radio(
                             "How should the app read numbers typed without a colon?",
                             ["Mins/Secs (e.g., 104 = 1:04, 530 = 5:30)", "Total Seconds (e.g., 82 = 1:22, 104 = 1:44)"],
-                            horizontal=True,
-                            help="This only applies if you type numbers without a colon to save time."
+                            horizontal=True
                         )
                         st.caption("Leave cells blank to skip an athlete. Select 'Not Assigned' to record they were intentionally excluded.")
                         
@@ -875,6 +825,9 @@ def home_page():
                             else:
                                 new_workout_rows = []
                                 formatted_date = pd.to_datetime(w_date).strftime("%Y-%m-%d")
+                                
+                                # FETCH WEATHER AUTOMATICALLY BEHIND THE SCENES
+                                w_weather = get_weather_for_date(formatted_date)
                                 
                                 for _, row in edited_df.iterrows():
                                     status = row["Status"]
@@ -947,9 +900,10 @@ def home_page():
                                 with h_col1:
                                     new_w_date = st.date_input("Workout Date", value=current_date_val)
                                     new_w_type = st.selectbox("Workout Type", type_options, index=t_index)
+                                    st.markdown(f"**Current Weather:** {current_weather}")
                                 with h_col2:
                                     new_w_dist = st.text_input("Distance/Rep Details", value=current_dist)
-                                    new_w_weather = st.text_input("Weather", value=current_weather)
+                                    # REMOVED MANUAL WEATHER INPUT
                                 
                                 st.markdown("### Update Athlete Splits")
                                 max_reps = 1
@@ -988,6 +942,12 @@ def home_page():
                                         keep_rows = workouts_data[~((workouts_data["Date"] == old_date) & (workouts_data["Workout_Type"] == old_type))]
                                         formatted_new_date = pd.to_datetime(new_w_date).strftime("%Y-%m-%d")
                                         
+                                        # AUTOMATICALLY RE-FETCH IF DATE CHANGED OR IF IT WAS MISSING
+                                        if formatted_new_date != old_date or not current_weather or "Can't" in current_weather:
+                                            final_weather = get_weather_for_date(formatted_new_date)
+                                        else:
+                                            final_weather = current_weather
+                                            
                                         new_rows = []
                                         for _, row in edited_df.iterrows():
                                             status = row["Status"]
@@ -996,7 +956,7 @@ def home_page():
                                             split_string = ", ".join(raw_times)
                                             new_rows.append({
                                                 "Date": formatted_new_date, "Workout_Type": new_w_type, "Rep_Distance": new_w_dist,
-                                                "Weather": new_w_weather, "Username": row["Username"], "Status": status, "Splits": split_string
+                                                "Weather": final_weather, "Username": row["Username"], "Status": status, "Splits": split_string
                                             })
                                             
                                         updated_workouts = pd.concat([keep_rows, pd.DataFrame(new_rows)], ignore_index=True)
@@ -1006,7 +966,7 @@ def home_page():
                                         st.rerun()
                                         
                                 with col_del:
-                                    if st.button("Delete This Workout Entirely", use_container_width=True):
+                                    if st.button("🗑️ Delete This Workout Entirely", use_container_width=True):
                                         keep_rows = workouts_data[~((workouts_data["Date"] == old_date) & (workouts_data["Workout_Type"] == old_type))]
                                         with st.spinner("Deleting workout..."): conn.update(worksheet="Workouts", data=keep_rows)
                                         st.success("Workout deleted!")
@@ -1023,7 +983,7 @@ def home_page():
         st.header("Training Dashboard")
         st.markdown("Your historical training and race data is below.")
         
-        tab_dash, tab_rankings = st.tabs(["My Dashboard", "Team Rankings"])
+        tab_dash, tab_rankings = st.tabs(["Leaderboard", "Master Grid"])
         
         with tab_dash:
             user_races = races_data[races_data["Username"] == st.session_state["username"]].copy()
@@ -1050,9 +1010,6 @@ def home_page():
         with tab_rankings:
             show_rankings_tab()
 
-# ==========================================
-# --- 8. INITIALIZATION LOGIC ---
-# ==========================================
 if not st.session_state["logged_in"]: login_page()
 elif st.session_state["first_login"]: password_reset_page()
 else: home_page()

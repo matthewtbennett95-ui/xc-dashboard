@@ -652,34 +652,41 @@ def home_page():
                             st.rerun()
 
         with tab3:
-            de_type = st.radio("Select Entry Mode", ["Race Results", "Workouts", "Manage Race Weights"], horizontal=True)
+            # Updated to say "Manage Meet Weights" instead of Race
+            de_type = st.radio("Select Entry Mode", ["Race Results", "Workouts", "Manage Meet Weights"], horizontal=True)
             st.markdown("---")
             
-            if de_type == "Manage Race Weights":
-                st.subheader("Manage Race Multipliers & Weights")
-                st.markdown("Adjust how heavily a race impacts the **Weighted Average** Rankings. Set a race to **0** to hide it from rankings entirely, or **2.0** to double its weight.")
+            if de_type == "Manage Meet Weights":
+                st.subheader("Manage Meet Multipliers & Weights")
+                st.markdown("Adjust how heavily a **Meet** impacts the **Weighted Average** Rankings. Set a meet to **0** to hide it from rankings entirely, or **2.0** to double its weight. (This applies to all races within the meet).")
                 
-                unique_races = races_data[["Meet_Name", "Race_Name", "Distance", "Date", "Weight"]].drop_duplicates(subset=["Meet_Name", "Race_Name", "Date"])
-                if unique_races.empty or unique_races["Meet_Name"].isna().all(): st.info("No races logged yet.")
+                # NEW LOGIC: Drop duplicates based on the Meet and Date, ignoring the individual races
+                unique_meets = races_data[["Meet_Name", "Date", "Weight"]].drop_duplicates(subset=["Meet_Name", "Date"])
+                
+                if unique_meets.empty or unique_meets["Meet_Name"].isna().all(): 
+                    st.info("No meets logged yet.")
                 else:
                     with st.form("weights_form"):
                         updated_weights = {}
-                        for index, row in unique_races.iterrows():
+                        for index, row in unique_meets.iterrows():
                             meet = row["Meet_Name"]
-                            race = row["Race_Name"]
                             date = row["Date"]
                             current_w = row["Weight"]
-                            label = f"{pd.to_datetime(date, errors='coerce').strftime('%m/%d/%Y')} | {meet} - {race} ({row['Distance']})"
+                            # Clean label showing just Date and Meet Name
+                            label = f"{pd.to_datetime(date, errors='coerce').strftime('%m/%d/%Y')} | {meet}"
                             
                             new_w = st.number_input(label, value=float(current_w), step=0.5, min_value=0.0, key=f"weight_input_{index}")
-                            updated_weights[(meet, race, date)] = new_w
+                            updated_weights[(meet, date)] = new_w
                             
                         if st.form_submit_button("Save Weights", type="primary"):
-                            for (m, r, d), w in updated_weights.items():
-                                mask = (races_data["Meet_Name"] == m) & (races_data["Race_Name"] == r) & (races_data["Date"] == d)
+                            for (m, d), w in updated_weights.items():
+                                # Apply the new weight to ALL rows matching this Meet and Date
+                                mask = (races_data["Meet_Name"] == m) & (races_data["Date"] == d)
                                 races_data.loc[mask, "Weight"] = w
-                            with st.spinner("Updating database..."): conn.update(worksheet="Races", data=races_data)
-                            st.success("Weights updated successfully!")
+                                
+                            with st.spinner("Updating database..."): 
+                                conn.update(worksheet="Races", data=races_data)
+                            st.success("Meet Weights updated successfully!")
                             st.cache_data.clear()
                             st.rerun()
 

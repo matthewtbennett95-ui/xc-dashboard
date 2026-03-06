@@ -110,6 +110,15 @@ st.markdown(f"""
             color: {current_theme['text']} !important;
         }}
         
+        /* Base Button Styling (kills the default white boxes) */
+        div.stButton > button, div.stFormSubmitButton > button {{
+            background-color: {current_theme['sidebar_bg']} !important;
+            color: {current_theme['text']} !important;
+            border: 1px solid {current_theme['metric_border']} !important;
+            transition: all 0.3s ease;
+        }}
+        
+        /* Fix button hover colors and animations */
         div.stButton > button:hover, div.stFormSubmitButton > button:hover {{
             border-color: {current_theme['line']} !important;
             color: {current_theme['line']} !important;

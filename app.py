@@ -7,9 +7,9 @@ from streamlit_gsheets import GSheetsConnection
 # ==========================================
 # --- 1. APP SETUP & VISUAL THEMES ---
 # ==========================================
-st.set_page_config(page_title="MCXC Team Dashboard", layout="centered", page_icon="🏃")
+st.set_page_config(page_title="MCXC Team Dashboard", layout="centered")
 
-# Define expanded visual themes (Now with backgrounds, text colors, and chart templates!)
+# Define expanded visual themes
 THEMES = {
     "MCXC Classic (Light)": {
         "bar": "linear-gradient(to right, #8B2331, #0C223F, #C7B683)", 
@@ -43,7 +43,7 @@ if "theme" not in st.session_state:
 
 current_theme = THEMES[st.session_state["theme"]]
 
-# Inject heavy-duty CSS to override Streamlit's default backgrounds and text
+# Inject refined CSS to override backgrounds safely
 st.markdown(f"""
     <style>
         /* Main App Background */
@@ -73,14 +73,13 @@ st.markdown(f"""
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }}
-        /* Override primary text colors (Headings, Paragraphs, Labels) */
-        h1, h2, h3, h4, p, span, label {{
+        /* Safely update main text colors, but EXCLUDE standard Streamlit widgets like buttons */
+        .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, label {{
             color: {current_theme['text']} !important;
         }}
     </style>
     <div class="color-bar"></div>
 """, unsafe_allow_html=True)
-
 
 # ==========================================
 # --- 2. MATH & LOGIC FUNCTIONS ---
@@ -228,7 +227,7 @@ def show_rankings_tab():
         return
     
     # Sub-Tabs for different viewing modes
-    tab_lead, tab_grid = st.tabs(["🏆 Leaderboard", "📅 Master Grid"])
+    tab_lead, tab_grid = st.tabs(["Leaderboard", "Master Grid"])
     
     with tab_lead:
         r_metric = st.radio("Rank By:", ["Weighted Average", "Personal Record (PR)"], horizontal=True, key="rankings_metric")
@@ -907,7 +906,7 @@ def home_page():
                                         st.rerun()
                                         
                                 with col_del:
-                                    if st.button("🗑️ Delete This Workout Entirely", use_container_width=True):
+                                    if st.button("Delete This Workout Entirely", use_container_width=True):
                                         keep_rows = workouts_data[~((workouts_data["Date"] == old_date) & (workouts_data["Workout_Type"] == old_type))]
                                         with st.spinner("Deleting workout..."): conn.update(worksheet="Workouts", data=keep_rows)
                                         st.success("Workout deleted!")

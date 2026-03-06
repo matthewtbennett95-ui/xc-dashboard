@@ -102,9 +102,19 @@ st.markdown(f"""
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }}
-        /* Override primary text colors */
-        .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, label, .stMetricValue {{
+        
+        /* Broadly override primary text colors to catch ALL grey text */
+        .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, 
+        .stMarkdown li, .stMarkdown span, div[data-testid="stCaptionContainer"],
+        label, .stMetricValue, div[data-testid="stTabs"] button p {{
             color: {current_theme['text']} !important;
+        }}
+        
+        /* Fix button hover disappearing acts */
+        div.stButton > button:hover, div.stFormSubmitButton > button:hover {{
+            border-color: {current_theme['line']} !important;
+            color: {current_theme['line']} !important;
+            background-color: {current_theme['app_bg']} !important;
         }}
         
         {dark_mode_css}

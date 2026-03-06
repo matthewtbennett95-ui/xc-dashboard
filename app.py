@@ -4,6 +4,7 @@ import datetime
 import requests
 import plotly.express as px  
 import numpy as np
+import re
 from streamlit_gsheets import GSheetsConnection
 
 # ==========================================
@@ -21,24 +22,42 @@ THEMES = {
         "metric_bg": "rgba(139, 35, 49, 0.05)", "metric_border": "rgba(139, 35, 49, 0.2)",
         "line": MCXC_CRIMSON, "app_bg": "#FFFFFF", "text": "#31333F", 
         "header": MCXC_NAVY, 
-        "sidebar_bg": "#F0F2F6", "plotly_template": "plotly_white",
-        "is_dark": False
+        "sidebar_bg": "#F0F2F6", "plotly_template": "plotly_white", "is_dark": False
     },
     "MCXC Elite (Dark)": {  
         "bar": f"linear-gradient(to right, {MCXC_CRIMSON}, {MCXC_GOLD}, {MCXC_CRIMSON})", 
         "metric_bg": "rgba(199, 182, 131, 0.1)", "metric_border": "rgba(199, 182, 131, 0.3)",
         "line": MCXC_GOLD, "app_bg": MCXC_NAVY, "text": "#F0F2F6", 
         "header": MCXC_GOLD, 
-        "sidebar_bg": "#08182D", "plotly_template": "plotly_dark",
-        "is_dark": True
+        "sidebar_bg": "#08182D", "plotly_template": "plotly_dark", "is_dark": True
     },
     "Midnight Runner (Dark)": {
         "bar": "linear-gradient(to right, #FF4B4B, #FF904F)", 
         "metric_bg": "rgba(255, 75, 75, 0.1)", "metric_border": "rgba(255, 75, 75, 0.3)",
         "line": "#FF4B4B", "app_bg": "#0E1117", "text": "#FFFFFF", 
         "header": MCXC_GOLD, 
-        "sidebar_bg": "#1A1C24", "plotly_template": "plotly_dark",
-        "is_dark": True
+        "sidebar_bg": "#1A1C24", "plotly_template": "plotly_dark", "is_dark": True
+    },
+    "Ocean Pace (Light)": {
+        "bar": "linear-gradient(to right, #00C9FF, #92FE9D)", 
+        "metric_bg": "rgba(0, 201, 255, 0.05)", "metric_border": "rgba(0, 201, 255, 0.3)",
+        "line": "#00C9FF", "app_bg": "#F4F8FB", "text": "#1A2A3A", 
+        "header": "#00C9FF",
+        "sidebar_bg": "#E5F0F9", "plotly_template": "plotly_white", "is_dark": False
+    },
+    "Forest Trail (Light)": {
+        "bar": "linear-gradient(to right, #2E7D32, #81C784)", 
+        "metric_bg": "rgba(46, 125, 50, 0.05)", "metric_border": "rgba(46, 125, 50, 0.3)",
+        "line": "#2E7D32", "app_bg": "#F1F8E9", "text": "#1B5E20", 
+        "header": "#1B5E20",
+        "sidebar_bg": "#E8F5E9", "plotly_template": "plotly_white", "is_dark": False
+    },
+    "Neon Track (Dark)": {
+        "bar": "linear-gradient(to right, #E040FB, #18FFFF)", 
+        "metric_bg": "rgba(224, 64, 251, 0.1)", "metric_border": "rgba(24, 255, 255, 0.3)",
+        "line": "#18FFFF", "app_bg": "#121212", "text": "#FFFFFF", 
+        "header": "#E040FB",
+        "sidebar_bg": "#1E1E1E", "plotly_template": "plotly_dark", "is_dark": True
     }
 }
 
@@ -51,14 +70,9 @@ dark_mode_css = ""
 if current_theme["is_dark"]:
     dark_mode_css = f"""
         [data-baseweb="input"] > div, [data-baseweb="select"] > div, [data-baseweb="base-input"] {{
-            background-color: rgba(0,0,0,0.4) !important;
-            color: #FFFFFF !important;
-            border-color: rgba(255,255,255,0.2) !important;
+            background-color: rgba(0,0,0,0.4) !important; color: #FFFFFF !important; border-color: rgba(255,255,255,0.2) !important;
         }}
-        [data-testid="stForm"] {{
-            background-color: {current_theme['sidebar_bg']} !important;
-            border-color: rgba(255,255,255,0.1) !important;
-        }}
+        [data-testid="stForm"] {{ background-color: {current_theme['sidebar_bg']} !important; border-color: rgba(255,255,255,0.1) !important; }}
         input, textarea, select {{ color: #FFFFFF !important; }}
         [data-testid="stDataFrame"], [data-testid="stDataEditor"] {{ filter: invert(0.92) hue-rotate(180deg); }}
     """
@@ -134,7 +148,6 @@ def get_grade_level(grad_year_str):
     current_season_year = today.year - 1 if today.month < 7 else today.year
     spring_grad_year = current_season_year + 1
     grade = 12 - (grad_year - spring_grad_year)
-    
     if grade == 9: return "9th"
     elif grade == 10: return "10th"
     elif grade == 11: return "11th"
@@ -205,7 +218,6 @@ roster_data = conn.read(worksheet="Roster", ttl=600).dropna(how="all")
 races_data = conn.read(worksheet="Races", ttl=600).dropna(how="all")
 workouts_data = conn.read(worksheet="Workouts", ttl=600).dropna(how="all")
 
-# Loaded from provided Pace & Rest Documents
 DEFAULT_VDOT = pd.DataFrame([
     {"VDOT": 66, "5K_Time": "15:41", "2_Mile_Time": "9:46", "Easy_Pace": "6:36-7:00", "Tempo_Pace": "5:28", "Interval_400m": "1:15", "Interval_1000m": "3:06"},
     {"VDOT": 64, "5K_Time": "16:07", "2_Mile_Time": "10:02", "Easy_Pace": "6:46-7:09", "Tempo_Pace": "5:36", "Interval_400m": "1:17", "Interval_1000m": "3:12"},
@@ -229,7 +241,7 @@ DEFAULT_REST = pd.DataFrame([
     {"Workout": "Tempo 400s", "Pace / Time": "1:20 and faster", "Cycle / Rest": "2:30 Cycle"},
     {"Workout": "Tempo 400s", "Pace / Time": "1:22-1:24", "Cycle / Rest": "2:40 Cycle"},
     {"Workout": "Tempo 400s", "Pace / Time": "1:25-1:27", "Cycle / Rest": "2:50 Cycle"},
-    {"Workout": "Tempo 400s", "Pace / Time": "1:28-1:29", "Cycle / Rest": "3:00 Cycle"},
+    {"Workout": "Tempo 400s", "Pace / Time": "1:28 and 1:29", "Cycle / Rest": "3:00 Cycle"},
     {"Workout": "Tempo 400s", "Pace / Time": "1:30-1:35", "Cycle / Rest": "3:10 Cycle"},
     {"Workout": "Tempo 400s", "Pace / Time": "1:36-1:40", "Cycle / Rest": "3:20 Cycle"},
     {"Workout": "Tempo 400s", "Pace / Time": "1:41 and slower", "Cycle / Rest": "Start next rep 2:00 after finish"},
@@ -307,34 +319,53 @@ def logout():
 # ==========================================
 # --- 5. VISUAL UI COMPONENTS & CHARTS ---
 # ==========================================
+def extract_seconds(time_str):
+    m = re.search(r'(\d+):(\d+)', time_str)
+    if m: return int(m.group(1)) * 60 + int(m.group(2))
+    m2 = re.search(r'(\d+) minute', time_str)
+    if m2: return int(m2.group(1)) * 60
+    return None
+
+def find_suggested_rest(category, compare_sec):
+    if not compare_sec or pd.isna(compare_sec): return "Rest data unavailable"
+    subset = rest_data[rest_data["Workout"].str.contains(category, case=False, na=False)]
+    
+    for _, row in subset.iterrows():
+        cond = str(row["Pace / Time"]).lower()
+        res = str(row["Cycle / Rest"])
+        times = re.findall(r'(\d+:\d+)', cond)
+        
+        if "sub" in cond or "under" in cond or "faster" in cond:
+            if times and compare_sec < extract_seconds(times[0]): return res
+        elif "+" in cond or "slower" in cond:
+            if times and compare_sec >= extract_seconds(times[0]): return res
+        elif len(times) == 2:
+            lower = extract_seconds(times[0])
+            upper = extract_seconds(times[1])
+            if lower <= compare_sec <= upper: return res
+    return "Check Coach / Rest Chart directly"
+
 def get_athlete_baseline(target_username):
     user_races = races_data[(races_data["Username"] == target_username) & (races_data["Active"].isin(["TRUE", "1", "1.0"]))].copy()
     if user_races.empty: return None, None
-    
-    # Priority 1: Current Season 5K
     c_5k = user_races[(user_races["Season"] == CURRENT_SEASON) & (user_races["Distance"].str.upper() == "5K") & (user_races["Total_Time"].str.strip() != "")]
     if not c_5k.empty:
         c_5k["sec"] = c_5k["Total_Time"].apply(time_to_seconds)
         return c_5k["sec"].min(), "Current Season 5K PR"
-        
-    # Priority 2: Current Season 2 Mile
     c_2m = user_races[(user_races["Season"] == CURRENT_SEASON) & (user_races["Distance"].str.upper() == "2 MILE") & (user_races["Total_Time"].str.strip() != "")]
     if not c_2m.empty:
         c_2m["sec"] = c_2m["Total_Time"].apply(time_to_seconds)
         return c_2m["sec"].min(), "Current Season 2-Mile PR"
-        
-    # Priority 3: Last Season 5K
     past_5k = user_races[(user_races["Distance"].str.upper() == "5K") & (user_races["Total_Time"].str.strip() != "")]
     if not past_5k.empty:
         past_5k["sec"] = past_5k["Total_Time"].apply(time_to_seconds)
         return past_5k["sec"].min(), "Past Season 5K PR"
-        
     return None, None
 
 def display_suggested_paces(target_username):
     st.subheader("📊 Suggested Training Paces")
     st.markdown("""
-    **What are these paces?** These suggested paces are based on the **VDOT system** [cite: 11] (developed by legendary coach Jack Daniels). The system uses your recent race performances to measure your current fitness level and provides optimal paces to train at to maximize physiological benefits without overtraining.
+    **What are these paces?** These suggested paces are based on the **VDOT system** (developed by legendary coach Jack Daniels). The system uses your recent race performances to measure your current fitness level and provides optimal paces to train at to maximize physiological benefits without overtraining.
     
     *⚠️ Note: These are SUGGESTED paces. You must always adjust based on weather, if you are running on a difficult cross-country course vs a track, and how your body feels that day.*
     """)
@@ -346,30 +377,94 @@ def display_suggested_paces(target_username):
         return
         
     vdot_df = vdot_data.copy()
-    
-    if "2-Mile" in baseline_source:
-        vdot_df["sec"] = vdot_df["2_Mile_Time"].apply(time_to_seconds)
-    else:
-        vdot_df["sec"] = vdot_df["5K_Time"].apply(time_to_seconds)
+    if "2-Mile" in baseline_source: vdot_df["sec"] = vdot_df["2_Mile_Time"].apply(time_to_seconds)
+    else: vdot_df["sec"] = vdot_df["5K_Time"].apply(time_to_seconds)
         
     closest_idx = (vdot_df["sec"] - best_sec).abs().idxmin()
-    matched_vdot = vdot_df.loc[closest_idx, "VDOT"]
+    matched_vdot_row = vdot_df.loc[closest_idx]
+    matched_vdot = matched_vdot_row["VDOT"]
     
     st.success(f"**Baseline Match:** We are using your **{baseline_source}** ({seconds_to_time(best_sec)}) to calculate your current VDOT fitness level.")
     
-    bracket_df = vdot_df.iloc[max(0, closest_idx-1) : min(len(vdot_df), closest_idx+2)].copy()
+    # ----------------------------------------------------
+    # --- DYNAMIC INTERACTIVE PACE & REST CALCULATOR ---
+    # ----------------------------------------------------
+    st.markdown("### 🎯 Quick Pace & Rest Calculator")
+    st.markdown("Select a workout below to instantly see your custom target time and rest cycle.")
     
+    col_w1, col_w2 = st.columns(2)
+    with col_w1:
+        wk_type = st.selectbox("Workout Type", ["Intervals", "Tempo", "Easy Run"])
+    with col_w2:
+        if wk_type == "Intervals":
+            wk_dist = st.selectbox("Distance", ["400m", "800m", "1000m", "1200m", "1 Mile"])
+        elif wk_type == "Tempo":
+            wk_dist = st.selectbox("Distance", ["400m", "Miles"])
+        else:
+            wk_dist = "N/A"
+            st.selectbox("Distance", ["Any / Continuous"], disabled=True)
+            
+    vdot_5k_sec = time_to_seconds(matched_vdot_row.get("5K_Time", "0:0"))
+    vdot_2m_sec = time_to_seconds(matched_vdot_row.get("2_Mile_Time", "0:0"))
+    
+    target_pace = "N/A"
+    suggested_rest = "N/A"
+    
+    if wk_type == "Easy Run":
+        target_pace = matched_vdot_row.get("Easy_Pace", "N/A")
+        suggested_rest = "Continuous Run (No Rest)"
+        
+    elif wk_type == "Tempo":
+        tempo_mile_sec = time_to_seconds(matched_vdot_row.get("Tempo_Pace", "0:0"))
+        if wk_dist == "Miles":
+            target_pace = f"{seconds_to_time(tempo_mile_sec)} per Mile"
+            suggested_rest = "Standard Tempo Rest (Typically 1 min per mile)"
+        else: # Tempo 400m
+            t400_sec = tempo_mile_sec / 4.023  # Approx 4 laps
+            target_pace = f"{seconds_to_time(t400_sec)} per 400m"
+            suggested_rest = find_suggested_rest("Tempo 400s", t400_sec)
+            
+    elif wk_type == "Intervals":
+        i400_sec = time_to_seconds(matched_vdot_row.get("Interval_400m", "0:0"))
+        i1000_sec = time_to_seconds(matched_vdot_row.get("Interval_1000m", "0:0"))
+        
+        if wk_dist == "400m":
+            target_pace = matched_vdot_row.get("Interval_400m", "N/A")
+            suggested_rest = "Equal rest or Coach's Discretion"
+        elif wk_dist == "800m":
+            target_pace = seconds_to_time(i400_sec * 2)
+            suggested_rest = find_suggested_rest("800s", vdot_5k_sec)
+        elif wk_dist == "1000m":
+            target_pace = matched_vdot_row.get("Interval_1000m", "N/A")
+            suggested_rest = find_suggested_rest("1000s", vdot_5k_sec)
+        elif wk_dist == "1200m":
+            target_pace = seconds_to_time(i400_sec * 3)
+            suggested_rest = find_suggested_rest("1200s", vdot_5k_sec)
+        elif wk_dist == "1 Mile":
+            target_pace = seconds_to_time(i1000_sec + (i400_sec * 1.5)) # Approximation for I-Pace Mile
+            suggested_rest = find_suggested_rest("Mile Intervals", vdot_2m_sec)
+
+    # Beautiful Dynamic Output Card
+    theme_bg = THEMES[st.session_state['theme']]['metric_bg']
+    theme_border = THEMES[st.session_state['theme']]['metric_border']
+    st.markdown(f"""
+    <div style="background-color: {theme_bg}; border: 2px solid {theme_border}; padding: 20px; border-radius: 10px; margin-top: 15px; margin-bottom: 30px;">
+        <h4 style="margin-top: 0; padding-bottom: 10px; border-bottom: 1px solid {theme_border};">🔥 {wk_type} ({wk_dist}) Target</h4>
+        <p style="font-size: 18px; margin: 10px 0;"><strong>🎯 Target Pace:</strong> {target_pace}</p>
+        <p style="font-size: 18px; margin: 0;"><strong>⏱️ Rest Cycle:</strong> {suggested_rest}</p>
+    </div>
+    """, unsafe_allow_html=True)
+    # ----------------------------------------------------
+
+    bracket_df = vdot_df.iloc[max(0, closest_idx-1) : min(len(vdot_df), closest_idx+2)].copy()
     def highlight_match(row):
         if row["VDOT"] == matched_vdot: return ['background-color: rgba(139, 35, 49, 0.2)'] * len(row)
         return [''] * len(row)
 
-    st.markdown("### Your Pace Chart")
+    st.markdown("### Master VDOT Pace Chart")
     disp_df = bracket_df[["VDOT", "5K_Time", "2_Mile_Time", "Easy_Pace", "Tempo_Pace", "Interval_400m", "Interval_1000m"]].copy()
-    disp_df.rename(columns={"5K_Time": "5K Equivalent", "2_Mile_Time": "2-Mile Equivalent", "Easy_Pace": "Easy Run Pace", "Tempo_Pace": "Tempo Pace (Per Mile)", "Interval_400m": "400m Interval", "Interval_1000m": "1000m Interval"}, inplace=True)
+    disp_df.rename(columns={"5K_Time": "5K Equivalent", "2_Mile_Time": "2-Mile Equivalent", "Easy_Pace": "Easy Run", "Tempo_Pace": "Tempo (Mile)", "Interval_400m": "400m (I)", "Interval_1000m": "1000m (I)"}, inplace=True)
     st.dataframe(disp_df.style.apply(highlight_match, axis=1), hide_index=True, use_container_width=True)
-    
-    st.markdown("### ⏱️ Standard Rest Cycles")
-    st.dataframe(rest_data, hide_index=True, use_container_width=True)
 
 def display_career_history(target_username):
     user_races = races_data[(races_data["Username"] == target_username) & (races_data["Active"].isin(["TRUE", "1", "1.0"]))].copy()
@@ -391,9 +486,7 @@ def display_career_history(target_username):
         idx = dist_races.groupby("Season")["Time_Sec"].idxmin()
         prs = dist_races.loc[idx].sort_values("Season")
         
-        fig = px.bar(prs, x="Season", y="Time_Sec", text="Total_Time",
-                     hover_data={"Meet_Name": True, "Date": True, "Time_Sec": False},
-                     title=f"{dist} Progression")
+        fig = px.bar(prs, x="Season", y="Time_Sec", text="Total_Time", hover_data={"Meet_Name": True, "Date": True, "Time_Sec": False}, title=f"{dist} Progression")
         fig.update_traces(marker_color=THEMES[st.session_state["theme"]]["line"], textposition="outside", textfont=dict(size=14, color=THEMES[st.session_state["theme"]]["text"]))
         fig.update_yaxes(visible=False, showgrid=False) 
         fig.update_xaxes(title="Season", type="category")
@@ -421,8 +514,7 @@ def show_rankings_tab():
     merged = merged[merged["Active_Clean"].isin(["TRUE", "1", "1.0"]) & merged["Active"].isin(["TRUE", "1", "1.0"])]
     merged = merged[(merged["Gender"].str.title() == target_gender) & (merged["Distance"].str.upper() == r_dist.upper()) & (merged["Season"] == r_season)]
     
-    if merged.empty:
-        return st.info("No active race data found for this category and season.")
+    if merged.empty: return st.info("No active race data found for this category and season.")
     
     tab_lead, tab_grid = st.tabs(["Leaderboard", "Master Grid"])
     with tab_lead:
@@ -465,14 +557,12 @@ def show_rankings_tab():
 
 def plot_athlete_progress(user_races):
     df = user_races[(user_races["Distance"].str.upper() == "5K") & (user_races["Time_Sec"] > 0)].copy()
-    if df.empty or len(df) < 2:
-        return 
+    if df.empty or len(df) < 2: return 
     
     df["Date_Obj"] = pd.to_datetime(df["Date"], errors='coerce')
     df = df.sort_values("Date_Obj")
     df["Time_Min"] = df["Time_Sec"] / 60.0  
     
-    # Text displays the Meet Name directly on the chart dots!
     fig = px.line(df, x="Date_Obj", y="Time_Min", markers=True, text="Meet_Name", title="📈 Current Season 5K Progression", hover_data={"Date_Obj": "|%b %d, %Y", "Time_Min": False, "Total_Time": True, "Meet_Name": False})
     fig.update_traces(textposition="top center", line_color=THEMES[st.session_state["theme"]]["line"], line_width=3, marker_size=8)
     fig.update_yaxes(title="Finish Time (Minutes)", autorange="reversed")
@@ -513,7 +603,6 @@ def display_athlete_races(target_username, target_season):
     else:
         st.info("No active race data found for this season.")
 
-# --- UPGRADED WORKOUT ANALYZER ---
 def display_athlete_workouts(target_username, target_season):
     user_workouts = workouts_data[(workouts_data["Username"] == target_username) & (workouts_data["Season"] == target_season)].copy()
     if user_workouts.empty: return st.info("No workout data found for this season.")
@@ -528,7 +617,6 @@ def display_athlete_workouts(target_username, target_season):
     user_workouts["Date_Formatted"] = user_workouts["Date_Obj"].dt.strftime('%m/%d/%Y').fillna("Unknown")
     user_workouts["Combo"] = user_workouts["Workout_Type"] + " (" + user_workouts["Rep_Distance"] + ")"
     
-    # THE FIX: This variable is now correctly named present_w
     present_w = user_workouts[user_workouts["Status"] == "Present"]
     
     tab_log, tab_spread, tab_trend = st.tabs(["📋 Workout Log", "🎯 Specific Session Variance", "📈 Category Trends"])
@@ -635,7 +723,6 @@ def password_reset_page():
                 st.cache_data.clear()
                 st.session_state["first_login"] = False
                 st.rerun()
-
 
 # ==========================================
 # --- 7. HOME PAGE ROUTER (DASHBOARD) ---
@@ -1064,7 +1151,7 @@ def home_page():
                                 
                                 for _, row in edited_df.iterrows():
                                     status = row["Status"]
-                                    raw_times = [str(row[f"Rep {i}"]) for i in range(1, w_reps + 1) if str(row[f"Rep {i}"]).strip() != ""]
+                                    raw_times = [str(row[f"Rep {i}"]).strip() for i in range(1, w_reps + 1) if str(row[f"Rep {i}"]).strip() != ""]
                                     
                                     if status != "Present" and len(raw_times) == 0:
                                         new_workout_rows.append({"Date": formatted_date, "Workout_Type": w_type, "Rep_Distance": w_dist, "Weather": w_weather, "Username": row["Username"], "Status": status, "Splits": "", "Season": season})

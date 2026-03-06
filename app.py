@@ -3,6 +3,7 @@ import pandas as pd
 import datetime
 import requests
 import plotly.express as px  
+import numpy as np
 from streamlit_gsheets import GSheetsConnection
 
 # ==========================================
@@ -38,14 +39,6 @@ THEMES = {
         "header": MCXC_GOLD, 
         "sidebar_bg": "#1A1C24", "plotly_template": "plotly_dark",
         "is_dark": True
-    },
-    "Ocean Pace (Light)": {
-        "bar": "linear-gradient(to right, #00C9FF, #92FE9D)", 
-        "metric_bg": "rgba(0, 201, 255, 0.05)", "metric_border": "rgba(0, 201, 255, 0.3)",
-        "line": "#00C9FF", "app_bg": "#F4F8FB", "text": "#1A2A3A", 
-        "header": "#00C9FF",
-        "sidebar_bg": "#E5F0F9", "plotly_template": "plotly_white",
-        "is_dark": False
     }
 }
 
@@ -66,62 +59,21 @@ if current_theme["is_dark"]:
             background-color: {current_theme['sidebar_bg']} !important;
             border-color: rgba(255,255,255,0.1) !important;
         }}
-        input, textarea, select {{
-            color: #FFFFFF !important;
-        }}
-        [data-testid="stDataFrame"], [data-testid="stDataEditor"] {{
-            filter: invert(0.92) hue-rotate(180deg);
-        }}
+        input, textarea, select {{ color: #FFFFFF !important; }}
+        [data-testid="stDataFrame"], [data-testid="stDataEditor"] {{ filter: invert(0.92) hue-rotate(180deg); }}
     """
 
 st.markdown(f"""
     <style>
-        .stApp {{
-            background-color: {current_theme['app_bg']} !important;
-        }}
-        [data-testid="stSidebar"] {{
-            background-color: {current_theme['sidebar_bg']} !important;
-        }}
-        [data-testid="stHeader"] {{
-            background-color: transparent !important;
-        }}
-        .color-bar {{
-            height: 8px;
-            background: {current_theme['bar']};
-            margin-bottom: 2rem;
-            border-radius: 4px;
-        }}
-        div[data-testid="metric-container"] {{
-            background-color: {current_theme['metric_bg']} !important;
-            border: 1px solid {current_theme['metric_border']} !important;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }}
-        
-        h1, h2, h3, h4, h5, h6,
-        .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, 
-        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {{
-            color: {current_theme['header']} !important;
-        }}
-
-        .stMarkdown p, .stMarkdown li, .stMarkdown span, div[data-testid="stCaptionContainer"],
-        label, .stMetricValue, div[data-testid="stTabs"] button p {{
-            color: {current_theme['text']} !important;
-        }}
-        
-        div.stButton > button, div.stFormSubmitButton > button {{
-            background-color: {current_theme['sidebar_bg']} !important;
-            color: {current_theme['text']} !important;
-            border: 1px solid {current_theme['metric_border']} !important;
-            transition: all 0.3s ease;
-        }}
-        
-        div.stButton > button:hover, div.stFormSubmitButton > button:hover {{
-            border-color: {current_theme['line']} !important;
-            color: {current_theme['line']} !important;
-            background-color: {current_theme['app_bg']} !important;
-        }}
+        .stApp {{ background-color: {current_theme['app_bg']} !important; }}
+        [data-testid="stSidebar"] {{ background-color: {current_theme['sidebar_bg']} !important; }}
+        [data-testid="stHeader"] {{ background-color: transparent !important; }}
+        .color-bar {{ height: 8px; background: {current_theme['bar']}; margin-bottom: 2rem; border-radius: 4px; }}
+        div[data-testid="metric-container"] {{ background-color: {current_theme['metric_bg']} !important; border: 1px solid {current_theme['metric_border']} !important; padding: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
+        h1, h2, h3, h4, h5, h6, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {{ color: {current_theme['header']} !important; }}
+        .stMarkdown p, .stMarkdown li, .stMarkdown span, div[data-testid="stCaptionContainer"], label, .stMetricValue, div[data-testid="stTabs"] button p {{ color: {current_theme['text']} !important; }}
+        div.stButton > button, div.stFormSubmitButton > button {{ background-color: {current_theme['sidebar_bg']} !important; color: {current_theme['text']} !important; border: 1px solid {current_theme['metric_border']} !important; transition: all 0.3s ease; }}
+        div.stButton > button:hover, div.stFormSubmitButton > button:hover {{ border-color: {current_theme['line']} !important; color: {current_theme['line']} !important; background-color: {current_theme['app_bg']} !important; }}
         {dark_mode_css}
     </style>
     <div class="color-bar"></div>
@@ -139,10 +91,9 @@ def time_to_seconds(time_str):
     return 0
 
 def seconds_to_time(seconds):
-    if seconds <= 0: return ""
+    if seconds <= 0 or pd.isna(seconds): return ""
     mins = int(seconds // 60)
-    secs = int(seconds % 60)
-    # Handles decimal precision elegantly for UI display
+    secs = seconds % 60
     return f"{mins}:{secs:05.2f}".replace(".00", "")
 
 def parse_fast_time(val, mode):
@@ -204,46 +155,29 @@ CURRENT_SEASON = calculate_season(datetime.date.today())
 
 @st.cache_data(ttl=86400) 
 def get_weather_for_date(date_str):
-    LATITUDE = 34.077604
-    LONGITUDE = -83.877289
-    
+    LATITUDE, LONGITUDE = 34.077604, -83.877289
     try:
         d_obj = pd.to_datetime(date_str)
         d = d_obj.strftime('%Y-%m-%d')
         days_ago = (pd.to_datetime("today") - d_obj).days
-        
-        if days_ago > 60:
-            url = f"https://archive-api.open-meteo.com/v1/archive?latitude={LATITUDE}&longitude={LONGITUDE}&start_date={d}&end_date={d}&daily=temperature_2m_max,precipitation_sum&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America/New_York"
-        else:
-            url = f"https://api.open-meteo.com/v1/forecast?latitude={LATITUDE}&longitude={LONGITUDE}&start_date={d}&end_date={d}&daily=temperature_2m_max,precipitation_sum&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America/New_York"
-            
+        url = f"https://archive-api.open-meteo.com/v1/archive?latitude={LATITUDE}&longitude={LONGITUDE}&start_date={d}&end_date={d}&daily=temperature_2m_max,precipitation_sum&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America/New_York" if days_ago > 60 else f"https://api.open-meteo.com/v1/forecast?latitude={LATITUDE}&longitude={LONGITUDE}&start_date={d}&end_date={d}&daily=temperature_2m_max,precipitation_sum&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America/New_York"
         res = requests.get(url)
         if res.status_code == 200:
             data = res.json()
             temp = data.get('daily', {}).get('temperature_2m_max', [None])[0]
             precip = data.get('daily', {}).get('precipitation_sum', [None])[0]
-            
-            if temp is None:
-                return "Can't access weather data"
-                
+            if temp is None: return "Can't access weather data"
             desc = f"{round(temp)}°F"
-            if precip and precip > 0.05:
-                desc += f" ({round(precip, 1)}in Rain)"
-            else:
-                desc += " (Dry)"
+            if precip and precip > 0.05: desc += f" ({round(precip, 1)}in Rain)"
+            else: desc += " (Dry)"
             return desc
         return "Can't access weather data"
-    except Exception as e:
-        return "Can't access weather data"
+    except Exception: return "Can't access weather data"
 
 def wrap_html_for_print(title, body_content, is_attendance=False):
     page_settings = "size: portrait;" if is_attendance else "size: auto;"
-    
     return f"""<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>{title}</title>
+<html><head><meta charset="UTF-8"><title>{title}</title>
 <style>
     body {{ font-family: Arial, sans-serif; padding: 10px; margin: 0; color: #000; }}
     @page {{ margin: 0.5in; {page_settings} }}
@@ -253,25 +187,14 @@ def wrap_html_for_print(title, body_content, is_attendance=False):
     th {{ background-color: #f2f2f2; font-weight: bold; font-size: 12px; }}
     h2 {{ margin: 5px 0 10px 0; font-size: 18px; text-align: center; font-weight: bold; }}
     h3 {{ margin: 5px 0; font-size: 14px; background-color: #e2e8f0; padding: 4px; border: 1px solid #000; border-bottom: none; }}
-    
     .print-btn {{ padding: 12px 24px; font-size: 16px; cursor: pointer; background: #8B2331; color: white; border: none; border-radius: 4px; font-weight: bold; margin-bottom: 10px; }}
-    
-    @media print {{
-        .no-print {{ display: none !important; }}
-        body {{ padding: 0; }}
-        * {{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
-    }}
-</style>
-</head>
-<body>
+    @media print {{ .no-print {{ display: none !important; }} body {{ padding: 0; }} * {{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }} }}
+</style></head><body>
     <div class="no-print" style="text-align: center; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
         <button class="print-btn" onclick="window.print()">🖨️ Click Here to Print / Save as PDF</button>
-        <p style="color: #666; font-size: 13px; margin: 0;"><strong>Pro Tip:</strong> For large rosters, set your printer "Scale" to <i>Fit to Page</i> or <i>90%</i> in the print settings.</p>
-    </div>
-    {body_content}
-</body>
-</html>"""
-
+        <p style="color: #666; font-size: 13px; margin: 0;"><strong>Pro Tip:</strong> For large rosters, set your printer "Scale" to <i>Fit to Page</i>.</p>
+    </div>{body_content}
+</body></html>"""
 
 # ==========================================
 # --- 3. DATABASE CONNECTION & CLEANUP ---
@@ -282,42 +205,83 @@ roster_data = conn.read(worksheet="Roster", ttl=600).dropna(how="all")
 races_data = conn.read(worksheet="Races", ttl=600).dropna(how="all")
 workouts_data = conn.read(worksheet="Workouts", ttl=600).dropna(how="all")
 
-if "Username" in roster_data.columns:
-    roster_data = roster_data[roster_data["Username"].astype(str).str.strip() != ""]
-    roster_data = roster_data.dropna(subset=["Username"])
+# Loaded from provided Pace & Rest Documents
+DEFAULT_VDOT = pd.DataFrame([
+    {"VDOT": 66, "5K_Time": "15:41", "2_Mile_Time": "9:46", "Easy_Pace": "6:36-7:00", "Tempo_Pace": "5:28", "Interval_400m": "1:15", "Interval_1000m": "3:06"},
+    {"VDOT": 64, "5K_Time": "16:07", "2_Mile_Time": "10:02", "Easy_Pace": "6:46-7:09", "Tempo_Pace": "5:36", "Interval_400m": "1:17", "Interval_1000m": "3:12"},
+    {"VDOT": 62, "5K_Time": "16:34", "2_Mile_Time": "10:19", "Easy_Pace": "6:56-7:21", "Tempo_Pace": "5:45", "Interval_400m": "1:19", "Interval_1000m": "3:17"},
+    {"VDOT": 60, "5K_Time": "17:03", "2_Mile_Time": "10:37", "Easy_Pace": "7:07-7:33", "Tempo_Pace": "5:54", "Interval_400m": "1:21", "Interval_1000m": "3:23"},
+    {"VDOT": 58, "5K_Time": "17:33", "2_Mile_Time": "10:56", "Easy_Pace": "7:19-7:46", "Tempo_Pace": "6:04", "Interval_400m": "1:23", "Interval_1000m": "3:29"},
+    {"VDOT": 56, "5K_Time": "18:05", "2_Mile_Time": "11:17", "Easy_Pace": "7:31-7:58", "Tempo_Pace": "6:14", "Interval_400m": "1:26", "Interval_1000m": "3:34"},
+    {"VDOT": 54, "5K_Time": "18:40", "2_Mile_Time": "11:39", "Easy_Pace": "7:44-8:13", "Tempo_Pace": "6:26", "Interval_400m": "1:28", "Interval_1000m": "3:40"},
+    {"VDOT": 52, "5K_Time": "19:17", "2_Mile_Time": "12:02", "Easy_Pace": "7:58-8:28", "Tempo_Pace": "6:37", "Interval_400m": "1:31", "Interval_1000m": "3:47"},
+    {"VDOT": 50, "5K_Time": "19:55", "2_Mile_Time": "12:27", "Easy_Pace": "8:15-8:45", "Tempo_Pace": "6:51", "Interval_400m": "1:34", "Interval_1000m": "3:55"},
+    {"VDOT": 48, "5K_Time": "20:39", "2_Mile_Time": "12:55", "Easy_Pace": "8:31-9:02", "Tempo_Pace": "7:05", "Interval_400m": "1:37", "Interval_1000m": "4:03"},
+    {"VDOT": 46, "5K_Time": "21:25", "2_Mile_Time": "13:24", "Easy_Pace": "8:48-9:21", "Tempo_Pace": "7:19", "Interval_400m": "1:40", "Interval_1000m": "4:11"},
+    {"VDOT": 44, "5K_Time": "22:13", "2_Mile_Time": "13:56", "Easy_Pace": "9:09-9:42", "Tempo_Pace": "7:35", "Interval_400m": "1:44", "Interval_1000m": "4:21"},
+    {"VDOT": 42, "5K_Time": "23:08", "2_Mile_Time": "14:31", "Easy_Pace": "9:28-10:04", "Tempo_Pace": "7:53", "Interval_400m": "1:48", "Interval_1000m": "4:36"},
+    {"VDOT": 40, "5K_Time": "24:07", "2_Mile_Time": "15:08", "Easy_Pace": "9:49-10:27", "Tempo_Pace": "8:13", "Interval_400m": "1:53", "Interval_1000m": "4:41"},
+    {"VDOT": 35, "5K_Time": "26:58", "2_Mile_Time": "16:58", "Easy_Pace": "10:52-11:35", "Tempo_Pace": "9:09", "Interval_400m": "2:06", "Interval_1000m": "5:14"},
+    {"VDOT": 30, "5K_Time": "30:40", "2_Mile_Time": "19:19", "Easy_Pace": "12:17-12:59", "Tempo_Pace": "10:19", "Interval_400m": "2:22", "Interval_1000m": "5:55"},
+])
 
-if "Username" in races_data.columns:
-    races_data = races_data[races_data["Username"].astype(str).str.strip() != ""]
-    races_data = races_data.dropna(subset=["Username"])
+DEFAULT_REST = pd.DataFrame([
+    {"Workout": "Tempo 400s", "Pace / Time": "1:20 and faster", "Cycle / Rest": "2:30 Cycle"},
+    {"Workout": "Tempo 400s", "Pace / Time": "1:22-1:24", "Cycle / Rest": "2:40 Cycle"},
+    {"Workout": "Tempo 400s", "Pace / Time": "1:25-1:27", "Cycle / Rest": "2:50 Cycle"},
+    {"Workout": "Tempo 400s", "Pace / Time": "1:28-1:29", "Cycle / Rest": "3:00 Cycle"},
+    {"Workout": "Tempo 400s", "Pace / Time": "1:30-1:35", "Cycle / Rest": "3:10 Cycle"},
+    {"Workout": "Tempo 400s", "Pace / Time": "1:36-1:40", "Cycle / Rest": "3:20 Cycle"},
+    {"Workout": "Tempo 400s", "Pace / Time": "1:41 and slower", "Cycle / Rest": "Start next rep 2:00 after finish"},
+    {"Workout": "800s (I Pace)", "Pace / Time": "Sub 17:30 (5K)", "Cycle / Rest": "5:00 Cycle"},
+    {"Workout": "800s (I Pace)", "Pace / Time": "17:31-18:39 (5K)", "Cycle / Rest": "5:10 Cycle"},
+    {"Workout": "800s (I Pace)", "Pace / Time": "18:40-19:16 (5K)", "Cycle / Rest": "5:25 Cycle"},
+    {"Workout": "800s (I Pace)", "Pace / Time": "19:17-19:54 (5K)", "Cycle / Rest": "5:30 Cycle"},
+    {"Workout": "800s (I Pace)", "Pace / Time": "19:55-20:59 (5K)", "Cycle / Rest": "5:40 Cycle"},
+    {"Workout": "800s (I Pace)", "Pace / Time": "21:00-25:10 (5K)", "Cycle / Rest": "5:50 Cycle"},
+    {"Workout": "800s (I Pace)", "Pace / Time": "25:11+ (5K)", "Cycle / Rest": "6:00 Cycle"},
+    {"Workout": "1000s (I Pace)", "Pace / Time": "Sub 17:30 (5K)", "Cycle / Rest": "6:00 Cycle"},
+    {"Workout": "1000s (I Pace)", "Pace / Time": "17:49-18:23 (5K)", "Cycle / Rest": "6:15 Cycle"},
+    {"Workout": "1000s (I Pace)", "Pace / Time": "18:40-18:57 (5K)", "Cycle / Rest": "6:30 Cycle"},
+    {"Workout": "1000s (I Pace)", "Pace / Time": "19:17-19:36 (5K)", "Cycle / Rest": "6:45 Cycle"},
+    {"Workout": "1000s (I Pace)", "Pace / Time": "19:55-20:39 (5K)", "Cycle / Rest": "7:00 Cycle"},
+    {"Workout": "1000s (I Pace)", "Pace / Time": "21:02-25:10 (5K)", "Cycle / Rest": "7:45 Cycle"},
+    {"Workout": "1000s (I Pace)", "Pace / Time": "25:46+ (5K)", "Cycle / Rest": "8:00 Cycle"},
+    {"Workout": "1200s (I Pace)", "Pace / Time": "Under 17:33 (5K)", "Cycle / Rest": "6:10 Cycle"},
+    {"Workout": "1200s (I Pace)", "Pace / Time": "17:34-18:23 (5K)", "Cycle / Rest": "6:45 Cycle"},
+    {"Workout": "1200s (I Pace)", "Pace / Time": "18:40-18:57 (5K)", "Cycle / Rest": "6:55 Cycle"},
+    {"Workout": "1200s (I Pace)", "Pace / Time": "18:58-19:36 (5K)", "Cycle / Rest": "7:05 Cycle"},
+    {"Workout": "1200s (I Pace)", "Pace / Time": "19:37-20:39 (5K)", "Cycle / Rest": "7:25 Cycle"},
+    {"Workout": "1200s (I Pace)", "Pace / Time": "20:40-25:10 (5K)", "Cycle / Rest": "7:45 Cycle"},
+    {"Workout": "Mile Intervals", "Pace / Time": "Sub 13:00 (2M)", "Cycle / Rest": "9:00 Cycle"},
+    {"Workout": "Mile Intervals", "Pace / Time": "13:01-15:00 (2M)", "Cycle / Rest": "11:00 Cycle"},
+    {"Workout": "Mile Intervals", "Pace / Time": "15:01-16:59 (2M)", "Cycle / Rest": "12:00 Cycle"},
+    {"Workout": "Mile Intervals", "Pace / Time": "17:00+ (2M)", "Cycle / Rest": "13:30 Cycle"}
+])
 
-if "Username" in workouts_data.columns:
-    workouts_data = workouts_data[workouts_data["Username"].astype(str).str.strip() != ""]
-    workouts_data = workouts_data.dropna(subset=["Username"])
+try: vdot_data = conn.read(worksheet="VDOT", ttl=600).dropna(how="all")
+except Exception: vdot_data = DEFAULT_VDOT
 
-if "Active" in roster_data.columns: 
-    roster_data["Active_Clean"] = roster_data["Active"].astype(str).str.strip().str.upper()
-else: 
-    roster_data["Active_Clean"] = "TRUE"
-    
-if "Gender" not in roster_data.columns: 
-    roster_data["Gender"] = "N/A"
+try: rest_data = conn.read(worksheet="Rest", ttl=600).dropna(how="all")
+except Exception: rest_data = DEFAULT_REST
 
-expected_race_cols = ["Date", "Meet_Name", "Race_Name", "Distance", "Username", "Mile_1", "Mile_2", "Total_Time", "Weight", "Active"]
-for col in expected_race_cols:
-    if col not in races_data.columns: 
-        if col == "Weight": races_data[col] = 1.0
-        elif col == "Active": races_data[col] = "TRUE"
-        else: races_data[col] = ""
+if "Username" in roster_data.columns: roster_data = roster_data.dropna(subset=["Username"])
+if "Username" in races_data.columns: races_data = races_data.dropna(subset=["Username"])
+if "Username" in workouts_data.columns: workouts_data = workouts_data.dropna(subset=["Username"])
+
+if "Active" in roster_data.columns: roster_data["Active_Clean"] = roster_data["Active"].astype(str).str.strip().str.upper()
+else: roster_data["Active_Clean"] = "TRUE"
+if "Gender" not in roster_data.columns: roster_data["Gender"] = "N/A"
+
+for col in ["Date", "Meet_Name", "Race_Name", "Distance", "Username", "Mile_1", "Mile_2", "Total_Time", "Weight", "Active"]:
+    if col not in races_data.columns: races_data[col] = 1.0 if col == "Weight" else "TRUE" if col == "Active" else ""
 
 races_data["Weight"] = pd.to_numeric(races_data["Weight"], errors="coerce").fillna(1.0)
 races_data["Active"] = races_data["Active"].astype(str).str.strip().str.upper()
 races_data.loc[races_data["Active"] == "NAN", "Active"] = "TRUE"
-races_data.loc[races_data["Active"] == "", "Active"] = "TRUE"
 
-expected_workout_cols = ["Date", "Workout_Type", "Rep_Distance", "Weather", "Username", "Status", "Splits"]
-for col in expected_workout_cols:
-    if col not in workouts_data.columns: 
-        workouts_data[col] = ""
+for col in ["Date", "Workout_Type", "Rep_Distance", "Weather", "Username", "Status", "Splits"]:
+    if col not in workouts_data.columns: workouts_data[col] = ""
 
 races_data["Season"] = races_data["Date"].apply(calculate_season)
 workouts_data["Season"] = workouts_data["Date"].apply(calculate_season)
@@ -340,87 +304,73 @@ def logout():
     for key in ["username", "first_name", "last_name", "role"]: st.session_state[key] = ""
     for key in ["current_meet", "current_meet_date", "current_race", "current_distance"]: st.session_state[key] = None
 
-
 # ==========================================
 # --- 5. VISUAL UI COMPONENTS & CHARTS ---
 # ==========================================
-def show_rankings_tab():
-    st.subheader("Team Rankings & Season Grid")
+def get_athlete_baseline(target_username):
+    user_races = races_data[(races_data["Username"] == target_username) & (races_data["Active"].isin(["TRUE", "1", "1.0"]))].copy()
+    if user_races.empty: return None, None
     
-    r_col1, r_col2, r_col3 = st.columns(3)
-    
-    available_seasons = sorted(races_data["Season"].unique().tolist(), reverse=True)
-    if not available_seasons: available_seasons = [CURRENT_SEASON]
-    with r_col1: r_season = st.selectbox("Season", available_seasons, key="rankings_season")
-    with r_col2: r_gender = st.selectbox("Category", ["Men's", "Women's"], key="rankings_category")
-    with r_col3: r_dist = st.selectbox("Distance", ["5K", "2 Mile"], key="rankings_distance")
+    # Priority 1: Current Season 5K
+    c_5k = user_races[(user_races["Season"] == CURRENT_SEASON) & (user_races["Distance"].str.upper() == "5K") & (user_races["Total_Time"].str.strip() != "")]
+    if not c_5k.empty:
+        c_5k["sec"] = c_5k["Total_Time"].apply(time_to_seconds)
+        return c_5k["sec"].min(), "Current Season 5K PR"
         
-    target_gender = "Male" if r_gender == "Men's" else "Female"
+    # Priority 2: Current Season 2 Mile
+    c_2m = user_races[(user_races["Season"] == CURRENT_SEASON) & (user_races["Distance"].str.upper() == "2 MILE") & (user_races["Total_Time"].str.strip() != "")]
+    if not c_2m.empty:
+        c_2m["sec"] = c_2m["Total_Time"].apply(time_to_seconds)
+        return c_2m["sec"].min(), "Current Season 2-Mile PR"
+        
+    # Priority 3: Last Season 5K
+    past_5k = user_races[(user_races["Distance"].str.upper() == "5K") & (user_races["Total_Time"].str.strip() != "")]
+    if not past_5k.empty:
+        past_5k["sec"] = past_5k["Total_Time"].apply(time_to_seconds)
+        return past_5k["sec"].min(), "Past Season 5K PR"
+        
+    return None, None
+
+def display_suggested_paces(target_username):
+    st.subheader("📊 Suggested Training Paces")
+    st.markdown("""
+    **What are these paces?** These suggested paces are based on the **VDOT system** [cite: 11] (developed by legendary coach Jack Daniels). The system uses your recent race performances to measure your current fitness level and provides optimal paces to train at to maximize physiological benefits without overtraining.
     
-    merged = pd.merge(races_data, roster_data[["Username", "First_Name", "Last_Name", "Gender", "Active_Clean"]], on="Username", how="inner")
+    *⚠️ Note: These are SUGGESTED paces. You must always adjust based on weather, if you are running on a difficult cross-country course vs a track, and how your body feels that day.*
+    """)
+    st.markdown("---")
     
-    merged = merged[merged["Active_Clean"].isin(["TRUE", "1", "1.0"])]
-    merged = merged[merged["Active"].isin(["TRUE", "1", "1.0"])]
-    merged = merged[(merged["Gender"].str.title() == target_gender) & (merged["Distance"].str.upper() == r_dist.upper()) & (merged["Season"] == r_season)]
-    
-    if merged.empty:
-        st.info("No active race data found for this category and season.")
+    best_sec, baseline_source = get_athlete_baseline(target_username)
+    if not best_sec:
+        st.info("We need at least one completed race in the database to calculate your suggested paces!")
         return
+        
+    vdot_df = vdot_data.copy()
     
-    tab_lead, tab_grid = st.tabs(["Leaderboard", "Master Grid"])
+    if "2-Mile" in baseline_source:
+        vdot_df["sec"] = vdot_df["2_Mile_Time"].apply(time_to_seconds)
+    else:
+        vdot_df["sec"] = vdot_df["5K_Time"].apply(time_to_seconds)
+        
+    closest_idx = (vdot_df["sec"] - best_sec).abs().idxmin()
+    matched_vdot = vdot_df.loc[closest_idx, "VDOT"]
     
-    with tab_lead:
-        r_metric = st.radio("Rank By:", ["Weighted Average", "Personal Record (PR)"], horizontal=True, key="rankings_metric")
-        
-        merged["Time_Sec"] = merged["Total_Time"].apply(time_to_seconds)
-        merged["Weight"] = pd.to_numeric(merged["Weight"], errors="coerce").fillna(1.0)
-        
-        results = []
-        for user, group in merged.groupby("Username"):
-            valid_races = group[group["Weight"] > 0] 
-            if valid_races.empty: continue
-                
-            if r_metric == "Personal Record (PR)":
-                best_time = valid_races["Time_Sec"].min()
-                results.append({"Athlete": f"{group.iloc[0]['First_Name']} {group.iloc[0]['Last_Name']}", "Time_Sec": best_time, "Mark": seconds_to_time(best_time)})
-            else: 
-                total_weight = valid_races["Weight"].sum()
-                if total_weight <= 0: continue
-                weighted_sum = (valid_races["Time_Sec"] * valid_races["Weight"]).sum()
-                avg_time = weighted_sum / total_weight
-                results.append({"Athlete": f"{group.iloc[0]['First_Name']} {group.iloc[0]['Last_Name']}", "Time_Sec": avg_time, "Mark": seconds_to_time(avg_time)})
-                
-        if not results:
-            st.info("No valid ranked data (check if races have a weight of 0).")
-        else:
-            rank_df = pd.DataFrame(results).sort_values(by="Time_Sec").reset_index(drop=True)
-            rank_df.index = rank_df.index + 1
-            rank_df = rank_df.rename_axis("Rank").reset_index()
-            
-            display_df = rank_df[["Rank", "Athlete", "Mark"]]
-            display_df = display_df.rename(columns={"Mark": "PR Time" if r_metric == "Personal Record (PR)" else "Weighted Avg Time"})
-            st.dataframe(display_df, hide_index=True, use_container_width=True)
+    st.success(f"**Baseline Match:** We are using your **{baseline_source}** ({seconds_to_time(best_sec)}) to calculate your current VDOT fitness level.")
+    
+    bracket_df = vdot_df.iloc[max(0, closest_idx-1) : min(len(vdot_df), closest_idx+2)].copy()
+    
+    def highlight_match(row):
+        if row["VDOT"] == matched_vdot: return ['background-color: rgba(139, 35, 49, 0.2)'] * len(row)
+        return [''] * len(row)
 
-    with tab_grid:
-        st.markdown(f"### Master {r_dist} Grid")
-        st.caption("Chronological view of all race performances.")
-        
-        grid_df = merged.copy()
-        grid_df["Athlete"] = grid_df["First_Name"] + " " + grid_df["Last_Name"]
-        
-        grid_df["Date_Obj"] = pd.to_datetime(grid_df["Date"], errors='coerce')
-        grid_df = grid_df.sort_values(by="Date_Obj")
-        
-        grid_df["Race_Col"] = grid_df["Meet_Name"] + " (" + grid_df["Date_Obj"].dt.strftime('%m/%d').fillna("") + ")"
-        
-        ordered_cols = grid_df["Race_Col"].unique().tolist()
-        
-        pivot_df = grid_df.pivot_table(index="Athlete", columns="Race_Col", values="Total_Time", aggfunc="first")
-        pivot_df = pivot_df.reindex(columns=ordered_cols).fillna("-").reset_index()
-        
-        st.dataframe(pivot_df, hide_index=True, use_container_width=True)
+    st.markdown("### Your Pace Chart")
+    disp_df = bracket_df[["VDOT", "5K_Time", "2_Mile_Time", "Easy_Pace", "Tempo_Pace", "Interval_400m", "Interval_1000m"]].copy()
+    disp_df.rename(columns={"5K_Time": "5K Equivalent", "2_Mile_Time": "2-Mile Equivalent", "Easy_Pace": "Easy Run Pace", "Tempo_Pace": "Tempo Pace (Per Mile)", "Interval_400m": "400m Interval", "Interval_1000m": "1000m Interval"}, inplace=True)
+    st.dataframe(disp_df.style.apply(highlight_match, axis=1), hide_index=True, use_container_width=True)
+    
+    st.markdown("### ⏱️ Standard Rest Cycles")
+    st.dataframe(rest_data, hide_index=True, use_container_width=True)
 
-# --- NEW: CAREER PR PROGRESSION ---
 def display_career_history(target_username):
     user_races = races_data[(races_data["Username"] == target_username) & (races_data["Active"].isin(["TRUE", "1", "1.0"]))].copy()
     if user_races.empty:
@@ -438,30 +388,80 @@ def display_career_history(target_username):
         found_any = True
         st.markdown(f"### 🏆 {dist} Season-by-Season PRs")
         
-        # Find the absolute best time for each season
         idx = dist_races.groupby("Season")["Time_Sec"].idxmin()
         prs = dist_races.loc[idx].sort_values("Season")
         
-        # Bar Chart showing Progression Year-over-Year
         fig = px.bar(prs, x="Season", y="Time_Sec", text="Total_Time",
                      hover_data={"Meet_Name": True, "Date": True, "Time_Sec": False},
                      title=f"{dist} Progression")
         fig.update_traces(marker_color=THEMES[st.session_state["theme"]]["line"], textposition="outside", textfont=dict(size=14, color=THEMES[st.session_state["theme"]]["text"]))
-        # Hide the raw seconds on Y axis, make it look clean
         fig.update_yaxes(visible=False, showgrid=False) 
         fig.update_xaxes(title="Season", type="category")
         fig.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"], margin=dict(t=40, b=0, l=0, r=0))
         st.plotly_chart(fig, use_container_width=True)
         
-        # Summary Grid underneath
-        clean_prs = prs[["Season", "Total_Time", "Meet_Name", "Date"]].rename(
-            columns={"Total_Time": "PR Time", "Meet_Name": "Meet", "Date": "Date Achieved"}
-        )
+        clean_prs = prs[["Season", "Total_Time", "Meet_Name", "Date"]].rename(columns={"Total_Time": "PR Time", "Meet_Name": "Meet", "Date": "Date Achieved"})
         st.dataframe(clean_prs, hide_index=True, use_container_width=True)
         st.markdown("<br><br>", unsafe_allow_html=True)
         
-    if not found_any:
-        st.info("No valid 5K or 2 Mile races found to build progression history.")
+    if not found_any: st.info("No valid races found to build progression history.")
+
+def show_rankings_tab():
+    st.subheader("Team Rankings & Season Grid")
+    r_col1, r_col2, r_col3 = st.columns(3)
+    
+    available_seasons = sorted(races_data["Season"].unique().tolist(), reverse=True)
+    if not available_seasons: available_seasons = [CURRENT_SEASON]
+    with r_col1: r_season = st.selectbox("Season", available_seasons, key="rankings_season")
+    with r_col2: r_gender = st.selectbox("Category", ["Men's", "Women's"], key="rankings_category")
+    with r_col3: r_dist = st.selectbox("Distance", ["5K", "2 Mile"], key="rankings_distance")
+        
+    target_gender = "Male" if r_gender == "Men's" else "Female"
+    merged = pd.merge(races_data, roster_data[["Username", "First_Name", "Last_Name", "Gender", "Active_Clean"]], on="Username", how="inner")
+    merged = merged[merged["Active_Clean"].isin(["TRUE", "1", "1.0"]) & merged["Active"].isin(["TRUE", "1", "1.0"])]
+    merged = merged[(merged["Gender"].str.title() == target_gender) & (merged["Distance"].str.upper() == r_dist.upper()) & (merged["Season"] == r_season)]
+    
+    if merged.empty:
+        return st.info("No active race data found for this category and season.")
+    
+    tab_lead, tab_grid = st.tabs(["Leaderboard", "Master Grid"])
+    with tab_lead:
+        r_metric = st.radio("Rank By:", ["Weighted Average", "Personal Record (PR)"], horizontal=True, key="rankings_metric")
+        merged["Time_Sec"] = merged["Total_Time"].apply(time_to_seconds)
+        merged["Weight"] = pd.to_numeric(merged["Weight"], errors="coerce").fillna(1.0)
+        
+        results = []
+        for user, group in merged.groupby("Username"):
+            valid_races = group[group["Weight"] > 0] 
+            if valid_races.empty: continue
+            if r_metric == "Personal Record (PR)":
+                best_time = valid_races["Time_Sec"].min()
+                results.append({"Athlete": f"{group.iloc[0]['First_Name']} {group.iloc[0]['Last_Name']}", "Time_Sec": best_time, "Mark": seconds_to_time(best_time)})
+            else: 
+                total_weight = valid_races["Weight"].sum()
+                if total_weight <= 0: continue
+                weighted_sum = (valid_races["Time_Sec"] * valid_races["Weight"]).sum()
+                avg_time = weighted_sum / total_weight
+                results.append({"Athlete": f"{group.iloc[0]['First_Name']} {group.iloc[0]['Last_Name']}", "Time_Sec": avg_time, "Mark": seconds_to_time(avg_time)})
+                
+        if not results: st.info("No valid ranked data (check if races have a weight of 0).")
+        else:
+            rank_df = pd.DataFrame(results).sort_values(by="Time_Sec").reset_index(drop=True)
+            rank_df.index = rank_df.index + 1
+            rank_df = rank_df.rename_axis("Rank").reset_index()
+            display_df = rank_df[["Rank", "Athlete", "Mark"]].rename(columns={"Mark": "PR Time" if r_metric == "Personal Record (PR)" else "Weighted Avg Time"})
+            st.dataframe(display_df, hide_index=True, use_container_width=True)
+
+    with tab_grid:
+        st.markdown(f"### Master {r_dist} Grid")
+        grid_df = merged.copy()
+        grid_df["Athlete"] = grid_df["First_Name"] + " " + grid_df["Last_Name"]
+        grid_df["Date_Obj"] = pd.to_datetime(grid_df["Date"], errors='coerce')
+        grid_df = grid_df.sort_values(by="Date_Obj")
+        grid_df["Race_Col"] = grid_df["Meet_Name"] + " (" + grid_df["Date_Obj"].dt.strftime('%m/%d').fillna("") + ")"
+        ordered_cols = grid_df["Race_Col"].unique().tolist()
+        pivot_df = grid_df.pivot_table(index="Athlete", columns="Race_Col", values="Total_Time", aggfunc="first").reindex(columns=ordered_cols).fillna("-").reset_index()
+        st.dataframe(pivot_df, hide_index=True, use_container_width=True)
 
 def plot_athlete_progress(user_races):
     df = user_races[(user_races["Distance"].str.upper() == "5K") & (user_races["Time_Sec"] > 0)].copy()
@@ -472,19 +472,12 @@ def plot_athlete_progress(user_races):
     df = df.sort_values("Date_Obj")
     df["Time_Min"] = df["Time_Sec"] / 60.0  
     
-    fig = px.line(
-        df, x="Date_Obj", y="Time_Min", markers=True, 
-        title="📈 Current Season 5K Progression",
-        hover_data={"Date_Obj": "|%b %d, %Y", "Time_Min": False, "Total_Time": True, "Meet_Name": True}
-    )
-    
+    # Text displays the Meet Name directly on the chart dots!
+    fig = px.line(df, x="Date_Obj", y="Time_Min", markers=True, text="Meet_Name", title="📈 Current Season 5K Progression", hover_data={"Date_Obj": "|%b %d, %Y", "Time_Min": False, "Total_Time": True, "Meet_Name": False})
+    fig.update_traces(textposition="top center", line_color=THEMES[st.session_state["theme"]]["line"], line_width=3, marker_size=8)
     fig.update_yaxes(title="Finish Time (Minutes)", autorange="reversed")
     fig.update_xaxes(title="Race Date")
-    fig.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"])
-    
-    theme_line_color = THEMES[st.session_state["theme"]]["line"]
-    fig.update_traces(line_color=theme_line_color, line_width=3, marker_size=8)
-    
+    fig.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"], margin=dict(t=50, b=20, l=20, r=20))
     st.plotly_chart(fig, use_container_width=True)
     st.markdown("---")
 
@@ -493,7 +486,6 @@ def display_athlete_races(target_username, target_season):
     if not user_races.empty:
         user_races["Time_Sec"] = user_races["Total_Time"].apply(time_to_seconds)
         user_races = user_races[user_races["Time_Sec"] > 0] 
-        
         user_races["Date_Obj"] = pd.to_datetime(user_races["Date"], errors='coerce')
         user_races = user_races.sort_values(by="Date_Obj", ascending=True)
         
@@ -511,25 +503,20 @@ def display_athlete_races(target_username, target_season):
         user_races["Final_Kick"] = user_races.apply(calculate_kick, axis=1)
         user_races["Date"] = user_races["Date_Obj"].dt.strftime('%m/%d/%Y').fillna("Unknown")
         
-        unique_distances = user_races["Distance"].unique()
-        for dist in unique_distances:
+        for dist in user_races["Distance"].unique():
             st.subheader(f"{dist} Races")
             dist_races = user_races[user_races["Distance"] == dist].copy()
-            display_cols = ["Date", "Meet_Name", "Race_Name", "Mile_1"]
-            if str(dist).upper() == "5K": display_cols.append("Mile_2")
-            display_cols.extend(["Final_Kick", "Total_Time", "Avg_Pace"])
-            rename_dict = {"Meet_Name": "Meet", "Race_Name": "Race", "Mile_1": "Mile 1", "Mile_2": "Mile 2", "Final_Kick": "Final Kick", "Total_Time": "Total Time", "Avg_Pace": "Avg Pace"}
-            clean_table = dist_races[display_cols].rename(columns=rename_dict)
+            display_cols = ["Date", "Meet_Name", "Race_Name", "Mile_1", "Mile_2", "Final_Kick", "Total_Time", "Avg_Pace"] if str(dist).upper() == "5K" else ["Date", "Meet_Name", "Race_Name", "Mile_1", "Final_Kick", "Total_Time", "Avg_Pace"]
+            clean_table = dist_races[display_cols].rename(columns={"Meet_Name": "Meet", "Race_Name": "Race", "Mile_1": "Mile 1", "Mile_2": "Mile 2", "Final_Kick": "Final Kick", "Total_Time": "Total Time", "Avg_Pace": "Avg Pace"})
             st.dataframe(clean_table, hide_index=True, use_container_width=True)
             st.markdown("<br>", unsafe_allow_html=True)
     else:
         st.info("No active race data found for this season.")
 
-# --- NEW: WORKOUT FILTERING & STANDARD DEVIATION ---
+# --- UPGRADED WORKOUT ANALYZER ---
 def display_athlete_workouts(target_username, target_season):
     user_workouts = workouts_data[(workouts_data["Username"] == target_username) & (workouts_data["Season"] == target_season)].copy()
-    if user_workouts.empty:
-        return st.info("No workout data found for this season.")
+    if user_workouts.empty: return st.info("No workout data found for this season.")
         
     user_workouts["Date_Obj"] = pd.to_datetime(user_workouts["Date"], errors='coerce')
     user_workouts = user_workouts.sort_values(by="Date_Obj", ascending=False)
@@ -539,69 +526,73 @@ def display_athlete_workouts(target_username, target_season):
             user_workouts.at[idx, "Weather"] = get_weather_for_date(row["Date"])
             
     user_workouts["Date_Formatted"] = user_workouts["Date_Obj"].dt.strftime('%m/%d/%Y').fillna("Unknown")
-    
-    # Create a unique "Combo" key to group identical workout types
     user_workouts["Combo"] = user_workouts["Workout_Type"] + " (" + user_workouts["Rep_Distance"] + ")"
     present_workouts = user_workouts[user_workouts["Status"] == "Present"]
-    unique_combos = present_workouts["Combo"].unique().tolist()
     
-    st.markdown("### 🔍 Filter Workouts")
-    sel_combo = st.selectbox("Compare your pacing across the season:", ["-- View All Workouts --"] + unique_combos)
-    st.markdown("---")
+    tab_log, tab_spread, tab_trend = st.tabs(["📋 Workout Log", "🎯 Specific Session Variance", "📈 Category Trends"])
     
-    if sel_combo != "-- View All Workouts --":
-        st.subheader(f"{sel_combo} Analysis")
-        filtered = present_workouts[present_workouts["Combo"] == sel_combo].sort_values("Date_Obj", ascending=True)
-        
-        graph_data = []
-        for idx, row in filtered.iterrows():
-            splits = [s.strip() for s in str(row["Splits"]).split(",") if s.strip()]
-            sec_splits = [time_to_seconds(s) for s in splits if time_to_seconds(s) > 0]
-            
-            if len(sec_splits) > 0:
-                s_series = pd.Series(sec_splits)
-                avg_sec = s_series.mean()
-                std_sec = s_series.std() if len(s_series) > 1 else 0
-                
-                # Assign math back to dataframe for table display
-                user_workouts.at[idx, "Avg_Split"] = seconds_to_time(avg_sec)
-                user_workouts.at[idx, "Consistency"] = f"± {std_sec:.1f} sec"
-                
-                # Store points for visual graph
-                for i, s in enumerate(sec_splits):
-                    graph_data.append({
-                        "Date": row["Date_Obj"].strftime("%b %d"),
-                        "Split Time": s,
-                        "Formatted Time": seconds_to_time(s),
-                        "Rep": f"Rep {i+1}"
-                    })
-                    
-        # Generate the Consistency Scatter Plot
-        if graph_data:
-            gdf = pd.DataFrame(graph_data)
-            fig = px.scatter(gdf, x="Date", y="Split Time", color="Rep",
-                             title="Pace Spread (Tighter is Better!)",
-                             hover_data={"Split Time": False, "Formatted Time": True})
-                             
-            fig.update_yaxes(title="Split Time", autorange="reversed") # Reverse Y so faster times are visually higher
-            fig.update_xaxes(title="Workout Date")
-            fig.update_traces(marker=dict(size=10, opacity=0.8, line=dict(width=1, color='DarkSlateGrey')))
-            fig.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"])
-            st.plotly_chart(fig, use_container_width=True)
-            
-        display_cols = ["Date_Formatted", "Avg_Split", "Consistency", "Splits", "Weather"]
-        clean_table = user_workouts.loc[filtered.index, [c for c in display_cols if c in user_workouts.columns]]
-        clean_table = clean_table.rename(columns={"Date_Formatted": "Date", "Avg_Split": "Avg Pace", "Consistency": "Standard Dev"})
-        st.dataframe(clean_table, hide_index=True, use_container_width=True)
-        
-    else:
-        # Default all-workout view
-        st.subheader("All Workout Logs")
+    with tab_log:
+        st.markdown("### Master Workout Log")
         display_cols = ["Date_Formatted", "Workout_Type", "Rep_Distance", "Status", "Splits", "Weather"]
-        rename_dict = {"Date_Formatted": "Date", "Workout_Type": "Type", "Rep_Distance": "Details"}
-        clean_table = user_workouts[display_cols].rename(columns=rename_dict)
+        clean_table = user_workouts[display_cols].rename(columns={"Date_Formatted": "Date", "Workout_Type": "Type", "Rep_Distance": "Details"})
         st.dataframe(clean_table, hide_index=True, use_container_width=True)
+        
+    with tab_spread:
+        st.markdown("### Specific Session Variance")
+        st.markdown("Analyze how steady your pacing was for a specific workout. **(Lower standard deviation = highly consistent pacing!)**")
+        
+        if present_w.empty:
+            st.info("No completed workouts found to analyze.")
+        else:
+            w_opts = {idx: f"{row['Date_Formatted']} | {row['Workout_Type']} ({row['Rep_Distance']})" for idx, row in present_w.iterrows()}
+            selected_w_idx = st.selectbox("Select a Workout to Analyze:", options=list(w_opts.keys()), format_func=lambda x: w_opts[x])
+            
+            w_row = present_w.loc[selected_w_idx]
+            raw_splits = [s.strip() for s in str(w_row["Splits"]).split(",") if s.strip()]
+            sec_splits = [time_to_seconds(s) for s in raw_splits if time_to_seconds(s) > 0]
+            
+            if len(sec_splits) > 1:
+                col_m1, col_m2 = st.columns(2)
+                avg_sec = np.mean(sec_splits)
+                std_sec = np.std(sec_splits, ddof=1)
+                
+                col_m1.metric("Average Pace", seconds_to_time(avg_sec))
+                col_m2.metric("Consistency Variance (Standard Dev)", f"± {std_sec:.1f} sec")
+                
+                graph_data = [{"Rep Number": f"Rep {i+1}", "Split Time": s, "Formatted": seconds_to_time(s)} for i, s in enumerate(sec_splits)]
+                gdf = pd.DataFrame(graph_data)
+                
+                fig = px.scatter(gdf, x="Rep Number", y="Split Time", title="Interval Pacing Variance", hover_data={"Split Time": False, "Formatted": True})
+                fig.update_traces(marker=dict(size=14, color=THEMES[st.session_state["theme"]]["line"], line=dict(width=2, color='DarkSlateGrey')))
+                fig.update_yaxes(title="Split Time", autorange="reversed")
+                fig.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"])
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("This workout does not have enough split data to analyze variance.")
 
+    with tab_trend:
+        st.markdown("### Category Trends")
+        st.markdown("Select a workout type to view your average pace dropping across the season.")
+        unique_types = present_w["Workout_Type"].unique().tolist()
+        sel_type = st.selectbox("Select Workout Type to Compare:", unique_types)
+        
+        type_w = present_w[present_w["Workout_Type"] == sel_type].sort_values("Date_Obj")
+        trend_data = []
+        for idx, row in type_w.iterrows():
+            s_list = [time_to_seconds(s.strip()) for s in str(row["Splits"]).split(",") if time_to_seconds(s.strip()) > 0]
+            if s_list:
+                trend_data.append({"Date": row["Date_Obj"], "Avg_Sec": np.mean(s_list), "Details": row["Rep_Distance"], "Formatted": seconds_to_time(np.mean(s_list))})
+                
+        if len(trend_data) > 1:
+            tdf = pd.DataFrame(trend_data)
+            tdf["Avg_Min"] = tdf["Avg_Sec"] / 60.0
+            fig2 = px.line(tdf, x="Date", y="Avg_Min", markers=True, text="Details", title=f"Average {sel_type} Pace Over Time", hover_data={"Date": "|%b %d", "Avg_Min": False, "Formatted": True, "Details": False})
+            fig2.update_traces(textposition="top center", line_color=THEMES[st.session_state["theme"]]["line"], line_width=3, marker_size=8)
+            fig2.update_yaxes(title="Average Pace", autorange="reversed")
+            fig2.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"])
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.info("Not enough data logged in this category to show a trend line.")
 
 # ==========================================
 # --- 6. LOGIN & SECURITY PAGES ---
@@ -688,10 +679,11 @@ def home_page():
                     
                     sel_season = st.selectbox("View Season:", athlete_seasons, key="coach_athlete_season")
                     
-                    sub_tab1, sub_tab2, sub_tab3 = st.tabs(["Race Results", "Workouts", "Career PRs"])
+                    sub_tab1, sub_tab2, sub_tab3, sub_tab4 = st.tabs(["Race Results", "Workouts", "Training Paces", "Career PRs"])
                     with sub_tab1: display_athlete_races(selected_username, sel_season)
                     with sub_tab2: display_athlete_workouts(selected_username, sel_season)
-                    with sub_tab3: display_career_history(selected_username)
+                    with sub_tab3: display_suggested_paces(selected_username)
+                    with sub_tab4: display_career_history(selected_username)
                 
         with tab2:
             st.subheader("Roster Management")
@@ -830,10 +822,31 @@ def home_page():
                             st.rerun()
 
         with tab3:
-            de_type = st.radio("Select Entry Mode", ["Race Results", "Workouts", "Manage Meet Weights", "Archive Specific Meet"], horizontal=True)
+            de_type = st.radio("Select Entry Mode", ["Race Results", "Workouts", "Manage Meet Weights", "Manage Pacing & Rest", "Archive Specific Meet"], horizontal=True)
             st.markdown("---")
             
-            if de_type == "Archive Specific Meet":
+            if de_type == "Manage Pacing & Rest":
+                st.subheader("Manage VDOT Paces & Rest Cycles")
+                st.info("These tables control the recommended paces and rest metrics automatically displayed to your athletes. You can change these targets mid-season if needed.")
+                
+                edit_tab1, edit_tab2 = st.tabs(["VDOT Pace Chart", "Rest Cycles"])
+                with edit_tab1:
+                    st.markdown("**Editable Pace Chart**")
+                    edited_vdot = st.data_editor(vdot_data, num_rows="dynamic", use_container_width=True)
+                    if st.button("💾 Save Pace Chart", type="primary"):
+                        with st.spinner("Updating database..."): conn.update(worksheet="VDOT", data=edited_vdot)
+                        st.success("Pace Chart updated!")
+                        st.cache_data.clear()
+                        
+                with edit_tab2:
+                    st.markdown("**Editable Rest Cycles**")
+                    edited_rest = st.data_editor(rest_data, num_rows="dynamic", use_container_width=True)
+                    if st.button("💾 Save Rest Cycles", type="primary"):
+                        with st.spinner("Updating database..."): conn.update(worksheet="Rest", data=edited_rest)
+                        st.success("Rest Cycles updated!")
+                        st.cache_data.clear()
+            
+            elif de_type == "Archive Specific Meet":
                 st.subheader("Archive a Single Meet")
                 st.markdown("Hiding a meet from the active dashboard (e.g. if you entered fake data or want to hide a specific event). Data remains in the database.")
                 
@@ -1210,20 +1223,9 @@ def home_page():
                     active_athletes = active_athletes[active_athletes["Gender"].str.title() == target_gender].sort_values(by="Last_Name")
                     
                     if p_type == "Summer":
-                        # Tuple: (Column Header Text, Is_Shaded_Boolean)
-                        columns_data = [
-                            ("Mon In", True), ("Mon Out", True),
-                            ("Tues In", False), ("Tues Out", False),
-                            ("Thur In", True), ("Thur Out", True)
-                        ]
+                        columns_data = [("Mon In", True), ("Mon Out", True), ("Tues In", False), ("Tues Out", False), ("Thur In", True), ("Thur Out", True)]
                     else:
-                        columns_data = [
-                            ("Mon In", True), ("Mon Out", True),
-                            ("Tues In", False), ("Tues Out", False),
-                            ("Wed In", True), ("Wed Out", True),
-                            ("Thurs In", False), ("Thurs Out", False),
-                            ("Fri In", True), ("Fri Out", True)
-                        ]
+                        columns_data = [("Mon In", True), ("Mon Out", True), ("Tues In", False), ("Tues Out", False), ("Wed In", True), ("Wed Out", True), ("Thurs In", False), ("Thurs Out", False), ("Fri In", True), ("Fri Out", True)]
                         
                     html = f"<h2>{p_gender.upper()} {p_type.upper()} ATTENDANCE</h2>"
                     if p_week: html += f"<h3>WEEK OF: {p_week}</h3>"
@@ -1266,18 +1268,13 @@ def home_page():
                 for i in range(race_count):
                     st.markdown(f"**Race Block {i+1}**")
                     r_col1, r_col2, r_col3 = st.columns([2, 1, 1])
-                    with r_col1:
-                        r_name = st.text_input("Race Title", placeholder="e.g. Boys Champ", key=f"rname_{i}", autocomplete="off")
-                    with r_col2:
-                        r_dist = st.selectbox("Distance", ["5K", "2 Mile", "Other"], key=f"rdist_{i}")
-                    with r_col3:
-                        r_filter = st.selectbox("Filter Runners", ["All", "Boys", "Girls"], key=f"rfilt_{i}")
+                    with r_col1: r_name = st.text_input("Race Title", placeholder="e.g. Boys Champ", key=f"rname_{i}", autocomplete="off")
+                    with r_col2: r_dist = st.selectbox("Distance", ["5K", "2 Mile", "Other"], key=f"rdist_{i}")
+                    with r_col3: r_filter = st.selectbox("Filter Runners", ["All", "Boys", "Girls"], key=f"rfilt_{i}")
                         
                     available_athletes = active_athletes.copy()
-                    if r_filter == "Boys":
-                        available_athletes = available_athletes[available_athletes["Gender"].str.title() == "Male"]
-                    elif r_filter == "Girls":
-                        available_athletes = available_athletes[available_athletes["Gender"].str.title() == "Female"]
+                    if r_filter == "Boys": available_athletes = available_athletes[available_athletes["Gender"].str.title() == "Male"]
+                    elif r_filter == "Girls": available_athletes = available_athletes[available_athletes["Gender"].str.title() == "Female"]
                         
                     other_race_runners = assigned_runners - set(st.session_state.get(f"rrunners_{i}", []))
                     available_athletes = available_athletes[~available_athletes["Username"].isin(other_race_runners)]
@@ -1290,10 +1287,8 @@ def home_page():
                     st.markdown("<br>", unsafe_allow_html=True)
                         
                 if st.button("Generate Sheet & Save Meet Setup", type="primary"):
-                    if not p_meet:
-                        st.error("Please enter a Meet Name.")
-                    elif not races_to_print:
-                        st.warning("Please configure at least one race with runners.")
+                    if not p_meet: st.error("Please enter a Meet Name.")
+                    elif not races_to_print: st.warning("Please configure at least one race with runners.")
                     else:
                         formatted_date = pd.to_datetime(p_date).strftime("%Y-%m-%d")
                         season = calculate_season(formatted_date)
@@ -1400,7 +1395,7 @@ def home_page():
         st.header("Training Dashboard")
         st.markdown("Your historical training and race data is below.")
         
-        tab_dash, tab_career, tab_rankings = st.tabs(["My Season", "Career History", "Team Rankings"])
+        tab_dash, tab_rankings = st.tabs(["My Season", "Team Rankings"])
         
         with tab_dash:
             u_races = races_data[races_data["Username"] == st.session_state["username"]]
@@ -1429,12 +1424,11 @@ def home_page():
             col_m3.metric(label=f"5K PR ({sel_season})", value=fastest_5k)
             st.markdown("<br>", unsafe_allow_html=True)
             
-            sub_races, sub_workouts = st.tabs(["Race Results", "Workouts"])
+            sub_races, sub_workouts, sub_paces, sub_career = st.tabs(["Race Results", "Workouts", "Training Paces", "Career PRs"])
             with sub_races: display_athlete_races(st.session_state["username"], sel_season)
             with sub_workouts: display_athlete_workouts(st.session_state["username"], sel_season)
-            
-        with tab_career:
-            display_career_history(st.session_state["username"])
+            with sub_paces: display_suggested_paces(st.session_state["username"])
+            with sub_career: display_career_history(st.session_state["username"])
             
         with tab_rankings:
             show_rankings_tab()

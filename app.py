@@ -139,21 +139,38 @@ def get_grade_level(grad_year_str):
     elif grade > 12: return "Alumni"
     else: return "Unknown"
 
-
 # ==========================================
 # --- 3. DATABASE CONNECTION & CLEANUP ---
 # ==========================================
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# Read the tabs from Google Sheets
-roster_data = conn.read(worksheet="Roster", ttl=600)
-races_data = conn.read(worksheet="Races", ttl=600)
-workouts_data = conn.read(worksheet="Workouts", ttl=600)
+# Read the tabs from Google Sheets and instantly drop empty rows
+roster_data = conn.read(worksheet="Roster", ttl=600).dropna(how="all")
+races_data = conn.read(worksheet="Races", ttl=600).dropna(how="all")
+workouts_data = conn.read(worksheet="Workouts", ttl=600).dropna(how="all")
+
+# CRITICAL BUG FIX: Strip "Ghost Rows"
+# Removes blank rows that Google Sheets generates by default so they don't crash the app
+if "Username" in roster_data.columns:
+    roster_data = roster_data[roster_data["Username"].astype(str).str.strip() != ""]
+    roster_data = roster_data.dropna(subset=["Username"])
+
+if "Username" in races_data.columns:
+    races_data = races_data[races_data["Username"].astype(str).str.strip() != ""]
+    races_data = races_data.dropna(subset=["Username"])
+
+if "Username" in workouts_data.columns:
+    workouts_data = workouts_data[workouts_data["Username"].astype(str).str.strip() != ""]
+    workouts_data = workouts_data.dropna(subset=["Username"])
 
 # Clean up basic Roster data to prevent errors
-if "Active" in roster_data.columns: roster_data["Active_Clean"] = roster_data["Active"].astype(str).str.strip().str.upper()
-else: roster_data["Active_Clean"] = "TRUE"
-if "Gender" not in roster_data.columns: roster_data["Gender"] = "N/A"
+if "Active" in roster_data.columns: 
+    roster_data["Active_Clean"] = roster_data["Active"].astype(str).str.strip().str.upper()
+else: 
+    roster_data["Active_Clean"] = "TRUE"
+    
+if "Gender" not in roster_data.columns: 
+    roster_data["Gender"] = "N/A"
 
 # Ensure all expected columns exist in Races
 expected_race_cols = ["Date", "Meet_Name", "Race_Name", "Distance", "Username", "Mile_1", "Mile_2", "Total_Time", "Weight"]
@@ -165,8 +182,8 @@ races_data["Weight"] = pd.to_numeric(races_data["Weight"], errors="coerce").fill
 # Ensure all expected columns exist in Workouts
 expected_workout_cols = ["Date", "Workout_Type", "Rep_Distance", "Weather", "Username", "Status", "Splits"]
 for col in expected_workout_cols:
-    if col not in workouts_data.columns: workouts_data[col] = ""
-
+    if col not in workouts_data.columns: 
+        workouts_data[col] = ""
 
 # ==========================================
 # --- 4. SESSION STATE MANAGEMENT ---

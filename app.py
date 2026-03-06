@@ -209,16 +209,16 @@ def logout():
 # --- 5. VISUAL UI COMPONENTS & CHARTS ---
 # ==========================================
 def show_rankings_tab():
-    st.subheader("Team Rankings")
-    r_col1, r_col2, r_col3 = st.columns(3)
+    st.subheader("Team Rankings & Season Grid")
     
-    # Bug Fix applied: Unique keys added here!
+    # Filters for Gender and Distance
+    r_col1, r_col2 = st.columns(2)
     with r_col1: r_gender = st.selectbox("Category", ["Men's", "Women's"], key="rankings_category")
     with r_col2: r_dist = st.selectbox("Distance", ["5K", "2 Mile"], key="rankings_distance")
-    with r_col3: r_metric = st.selectbox("Rank By", ["Weighted Average", "Personal Record (PR)"], key="rankings_metric")
         
     target_gender = "Male" if r_gender == "Men's" else "Female"
     
+    # Merge Races and Roster
     merged = pd.merge(races_data, roster_data[["Username", "First_Name", "Last_Name", "Gender", "Active_Clean"]], on="Username", how="inner")
     merged = merged[merged["Active_Clean"].isin(["TRUE", "1", "1.0"])]
     merged = merged[(merged["Gender"].str.title() == target_gender) & (merged["Distance"].str.upper() == r_dist.upper())]
@@ -226,37 +226,66 @@ def show_rankings_tab():
     if merged.empty:
         st.info("No race data found for this category.")
         return
+    
+    # Sub-Tabs for different viewing modes
+    tab_lead, tab_grid = st.tabs(["🏆 Leaderboard", "📅 Master Grid"])
+    
+    with tab_lead:
+        r_metric = st.radio("Rank By:", ["Weighted Average", "Personal Record (PR)"], horizontal=True, key="rankings_metric")
         
-    merged["Time_Sec"] = merged["Total_Time"].apply(time_to_seconds)
-    merged["Weight"] = pd.to_numeric(merged["Weight"], errors="coerce").fillna(1.0)
-    
-    results = []
-    for user, group in merged.groupby("Username"):
-        valid_races = group[group["Weight"] > 0] 
-        if valid_races.empty: continue
-            
-        if r_metric == "Personal Record (PR)":
-            best_time = valid_races["Time_Sec"].min()
-            results.append({"Athlete": f"{group.iloc[0]['First_Name']} {group.iloc[0]['Last_Name']}", "Time_Sec": best_time, "Mark": seconds_to_time(best_time)})
-        else: # Weighted Average
-            total_weight = valid_races["Weight"].sum()
-            if total_weight <= 0: continue
-            weighted_sum = (valid_races["Time_Sec"] * valid_races["Weight"]).sum()
-            avg_time = weighted_sum / total_weight
-            results.append({"Athlete": f"{group.iloc[0]['First_Name']} {group.iloc[0]['Last_Name']}", "Time_Sec": avg_time, "Mark": seconds_to_time(avg_time)})
-            
-    if not results:
-        st.info("No valid ranked data (check if races have a weight of 0).")
-        return
+        merged["Time_Sec"] = merged["Total_Time"].apply(time_to_seconds)
+        merged["Weight"] = pd.to_numeric(merged["Weight"], errors="coerce").fillna(1.0)
         
-    rank_df = pd.DataFrame(results).sort_values(by="Time_Sec").reset_index(drop=True)
-    rank_df.index = rank_df.index + 1
-    rank_df = rank_df.rename_axis("Rank").reset_index()
-    
-    display_df = rank_df[["Rank", "Athlete", "Mark"]]
-    display_df = display_df.rename(columns={"Mark": "PR Time" if r_metric == "Personal Record (PR)" else "Weighted Avg Time"})
-    
-    st.dataframe(display_df, hide_index=True, use_container_width=True)
+        results = []
+        for user, group in merged.groupby("Username"):
+            valid_races = group[group["Weight"] > 0] # Filter out explicitly ignored races
+            if valid_races.empty: continue
+                
+            if r_metric == "Personal Record (PR)":
+                best_time = valid_races["Time_Sec"].min()
+                results.append({"Athlete": f"{group.iloc[0]['First_Name']} {group.iloc[0]['Last_Name']}", "Time_Sec": best_time, "Mark": seconds_to_time(best_time)})
+            else: # Weighted Average
+                total_weight = valid_races["Weight"].sum()
+                if total_weight <= 0: continue
+                weighted_sum = (valid_races["Time_Sec"] * valid_races["Weight"]).sum()
+                avg_time = weighted_sum / total_weight
+                results.append({"Athlete": f"{group.iloc[0]['First_Name']} {group.iloc[0]['Last_Name']}", "Time_Sec": avg_time, "Mark": seconds_to_time(avg_time)})
+                
+        if not results:
+            st.info("No valid ranked data (check if races have a weight of 0).")
+        else:
+            rank_df = pd.DataFrame(results).sort_values(by="Time_Sec").reset_index(drop=True)
+            rank_df.index = rank_df.index + 1
+            rank_df = rank_df.rename_axis("Rank").reset_index()
+            
+            display_df = rank_df[["Rank", "Athlete", "Mark"]]
+            display_df = display_df.rename(columns={"Mark": "PR Time" if r_metric == "Personal Record (PR)" else "Weighted Avg Time"})
+            st.dataframe(display_df, hide_index=True, use_container_width=True)
+
+    with tab_grid:
+        st.markdown(f"### Master {r_dist} Grid")
+        st.caption("Chronological view of all race performances.")
+        
+        grid_df = merged.copy()
+        grid_df["Athlete"] = grid_df["First_Name"] + " " + grid_df["Last_Name"]
+        
+        # Sort chronologically so columns appear in the order the races happened
+        grid_df["Date_Obj"] = pd.to_datetime(grid_df["Date"], errors='coerce')
+        grid_df = grid_df.sort_values(by="Date_Obj")
+        
+        # Create a clean column name like "State Champs (10/15)"
+        grid_df["Race_Col"] = grid_df["Meet_Name"] + " (" + grid_df["Date_Obj"].dt.strftime('%m/%d').fillna("") + ")"
+        
+        # Capture the chronological order of the races
+        ordered_cols = grid_df["Race_Col"].unique().tolist()
+        
+        # Pivot the table: Athletes as rows, Races as columns, Times as values
+        pivot_df = grid_df.pivot_table(index="Athlete", columns="Race_Col", values="Total_Time", aggfunc="first")
+        
+        # Reorder columns chronologically, fill blank cells with a dash, and reset index to show Athlete column
+        pivot_df = pivot_df.reindex(columns=ordered_cols).fillna("-").reset_index()
+        
+        st.dataframe(pivot_df, hide_index=True, use_container_width=True)True)
 
 def plot_athlete_progress(user_races):
     # Filter only for 5K races with valid times

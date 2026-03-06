@@ -122,28 +122,6 @@ st.markdown(f"""
             color: {current_theme['line']} !important;
             background-color: {current_theme['app_bg']} !important;
         }}
-        
-        /* ==========================================
-           PRINT CSS (Hides UI Elements for clean printing)
-           ========================================== */
-        @media print {{
-            .stApp {{ background-color: white !important; }}
-            section[data-testid="stSidebar"], header[data-testid="stHeader"], 
-            div[data-testid="stToolbar"], div[data-testid="stDecoration"] {{ display: none !important; }}
-            
-            .stRadio, .stSelectbox, .stButton, .stMultiSelect, .stNumberInput, .stTextInput {{ display: none !important; }}
-            div[data-testid="stForm"] {{ display: none !important; }}
-            div[data-testid="stTabs"] > div:first-child {{ display: none !important; }}
-            
-            .stMainBlockContainer {{ max-width: 100% !important; padding: 0 !important; }}
-            h1, h2, h3, h4, h5, h6, p, span, div, td, th {{ color: black !important; }}
-            
-            .print-table {{ width: 100%; border-collapse: collapse; margin-bottom: 2rem; page-break-inside: avoid; font-size: 14px; }}
-            .print-table th, .print-table td {{ border: 1px solid black !important; padding: 8px; text-align: left; }}
-            .print-table th {{ background-color: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-weight: bold; }}
-            .color-bar {{ display: none !important; }}
-        }}
-        
         {dark_mode_css}
     </style>
     <div class="color-bar"></div>
@@ -248,6 +226,35 @@ def get_weather_for_date(date_str):
         return "Can't access weather data"
     except Exception as e:
         return "Can't access weather data"
+
+# Wraps pure HTML for perfect printable sheets
+def wrap_html_for_print(title, body_content):
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{title}</title>
+<style>
+    body {{ font-family: Arial, sans-serif; padding: 20px; }}
+    table {{ width: 100%; border-collapse: collapse; margin-bottom: 30px; page-break-inside: avoid; }}
+    th, td {{ border: 1px solid #000; padding: 8px; text-align: left; }}
+    th {{ background-color: #f2f2f2; -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
+    h2, h3 {{ margin-bottom: 10px; }}
+    .print-btn {{ padding: 10px 20px; font-size: 16px; cursor: pointer; background: #8B2331; color: white; border: none; border-radius: 4px; font-weight: bold; }}
+    @media print {{
+        .no-print {{ display: none !important; }}
+        body {{ padding: 0; }}
+    }}
+</style>
+</head>
+<body>
+    <div class="no-print" style="margin-bottom: 20px;">
+        <button class="print-btn" onclick="window.print()">🖨️ Click Here to Print Sheet</button>
+        <p style="color: gray; font-size: 14px;">(This button and the gray background will not appear on the paper)</p>
+    </div>
+    {body_content}
+</body>
+</html>"""
 
 # ==========================================
 # --- 3. DATABASE CONNECTION & CLEANUP ---
@@ -1090,7 +1097,7 @@ def home_page():
                     html = f"<h2>{p_gender.upper()} {p_type.upper()} ATTENDANCE</h2>"
                     if p_week: html += f"<h3>WEEK OF: {p_week}</h3>"
                     
-                    html += "<table class='print-table'><tr><th>Runner</th>"
+                    html += "<table><tr><th>Runner</th>"
                     for c in cols: html += f"<th>{c}</th>"
                     html += "</tr>"
                     
@@ -1100,8 +1107,9 @@ def home_page():
                         html += "</tr>"
                     html += "</table>"
                     
-                    st.info("Press **Ctrl+P** (or **Cmd+P** on Mac) to print. All menus and buttons will automatically hide on the printed page!")
-                    st.markdown(html, unsafe_allow_html=True)
+                    final_html = wrap_html_for_print(f"{p_gender} Attendance", html)
+                    st.success("Your printable sheet is ready!")
+                    st.download_button(label="📥 Download Printable HTML Sheet", data=final_html, file_name=f"{p_gender}_Attendance.html", mime="text/html")
 
             elif print_action == "Create New Meet / Print Sheet":
                 st.markdown("Build your race entries here to instantly generate a printable clipboard sheet AND save the pending roster to the database for ultra-fast post-race data entry.")
@@ -1114,18 +1122,37 @@ def home_page():
                 race_count = st.number_input("How many separate races do you need?", min_value=1, max_value=10, value=2)
                 
                 active_athletes = roster_data[(roster_data["Role"].str.upper() == "ATHLETE") & (roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"]))].copy()
-                athlete_opts = {row["Username"]: f"{row['First_Name']} {row['Last_Name']}" for _, row in active_athletes.sort_values(by=["Gender", "Last_Name"]).iterrows()}
+                
+                # Pre-calculate assigned runners to prevent double dipping across races
+                assigned_runners = set()
+                for j in range(race_count):
+                    assigned_runners.update(st.session_state.get(f"rrunners_{j}", []))
                 
                 races_to_print = []
                 for i in range(race_count):
                     st.markdown(f"**Race Block {i+1}**")
-                    r_col1, r_col2, r_col3 = st.columns([2, 1, 3])
+                    r_col1, r_col2, r_col3 = st.columns([2, 1, 1])
                     with r_col1:
                         r_name = st.text_input("Race Title", placeholder="e.g. Boys Champ", key=f"rname_{i}", autocomplete="off")
                     with r_col2:
                         r_dist = st.selectbox("Distance", ["5K", "2 Mile", "Other"], key=f"rdist_{i}")
                     with r_col3:
-                        r_runners = st.multiselect("Select Runners", options=list(athlete_opts.keys()), format_func=lambda x: athlete_opts[x], key=f"rrunners_{i}")
+                        r_filter = st.selectbox("Filter Runners", ["All", "Boys", "Girls"], key=f"rfilt_{i}")
+                        
+                    # Filter by gender for this specific race block
+                    available_athletes = active_athletes.copy()
+                    if r_filter == "Boys":
+                        available_athletes = available_athletes[available_athletes["Gender"].str.title() == "Male"]
+                    elif r_filter == "Girls":
+                        available_athletes = available_athletes[available_athletes["Gender"].str.title() == "Female"]
+                        
+                    # Remove athletes already assigned to OTHER races in this meet
+                    other_race_runners = assigned_runners - set(st.session_state.get(f"rrunners_{i}", []))
+                    available_athletes = available_athletes[~available_athletes["Username"].isin(other_race_runners)]
+                    
+                    athlete_opts = {row["Username"]: f"{row['First_Name']} {row['Last_Name']}" for _, row in available_athletes.sort_values(by=["Last_Name"]).iterrows()}
+                    
+                    r_runners = st.multiselect("Select Runners", options=list(athlete_opts.keys()), format_func=lambda x: athlete_opts[x], key=f"rrunners_{i}")
                     if r_name and r_runners:
                         races_to_print.append({"name": r_name, "dist": r_dist, "runners": r_runners})
                     st.markdown("<br>", unsafe_allow_html=True)
@@ -1154,17 +1181,18 @@ def home_page():
                             with st.spinner("Saving to database..."): conn.update(worksheet="Races", data=updated_races)
                             st.cache_data.clear()
                             
-                        st.success(f"Successfully created '{p_meet}'! You can enter finish times in the 'Data Entry' tab after the race.")
-                        st.info("Press **Ctrl+P** (or **Cmd+P** on Mac) to print. All menus and buttons will automatically hide on the printed page!")
-                        
+                        # Generate HTML for the download
                         html = f"<h2>{p_meet} - Split Sheet</h2>"
                         for race in races_to_print:
                             html += f"<h3>{race['name']} ({race['dist']})</h3>"
-                            html += "<table class='print-table'>"
+                            html += "<table>"
                             html += "<tr><th>Athlete</th><th>Prior Best at Meet</th><th>1 Mile</th><th>2 Mile</th><th>Finish</th></tr>"
                             
+                            # Used to fetch names without caring about gender filters
+                            all_athlete_opts = {row["Username"]: f"{row['First_Name']} {row['Last_Name']}" for _, row in active_athletes.iterrows()}
+                            
                             for uname in race['runners']:
-                                a_name = athlete_opts[uname]
+                                a_name = all_athlete_opts[uname]
                                 prior_time = ""
                                 
                                 prior_races = races_data[(races_data["Username"] == uname) & (races_data["Meet_Name"] == p_meet) & (races_data["Total_Time"].str.strip() != "")]
@@ -1185,7 +1213,9 @@ def home_page():
                                 html += f"<tr><td>{a_name}</td><td>{prior_time}</td><td></td><td></td><td></td></tr>"
                             html += "</table><br>"
                             
-                        st.markdown(html, unsafe_allow_html=True)
+                        final_html = wrap_html_for_print(f"{p_meet} Split Sheet", html)
+                        st.success(f"Successfully created '{p_meet}'! You can now download the sheet or go to 'Data Entry' to input times.")
+                        st.download_button(label="📥 Download Printable HTML Sheet", data=final_html, file_name=f"{p_meet.replace(' ', '_')}_Sheet.html", mime="text/html")
                         
             elif print_action == "Re-Print Existing Meet":
                 active_meets = races_data[races_data["Active"].isin(["TRUE", "1", "1.0"])]["Meet_Name"].dropna().unique().tolist()
@@ -1193,7 +1223,6 @@ def home_page():
                 
                 if p_meet != "-- Select Meet --":
                     if st.button("Generate Print Sheet", type="primary"):
-                        st.info("Press **Ctrl+P** (or **Cmd+P** on Mac) to print.")
                         meet_rows = races_data[races_data["Meet_Name"] == p_meet]
                         unique_races = meet_rows["Race_Name"].unique()
                         
@@ -1205,7 +1234,7 @@ def home_page():
                             r_rows = meet_rows[meet_rows["Race_Name"] == r_name]
                             dist = r_rows["Distance"].iloc[0] if not r_rows.empty else ""
                             html += f"<h3>{r_name} ({dist})</h3>"
-                            html += "<table class='print-table'>"
+                            html += "<table>"
                             html += "<tr><th>Athlete</th><th>Prior Best at Meet</th><th>1 Mile</th><th>2 Mile</th><th>Finish</th></tr>"
 
                             for uname in r_rows["Username"].tolist():
@@ -1229,7 +1258,10 @@ def home_page():
 
                                 html += f"<tr><td>{a_name}</td><td>{prior_time}</td><td></td><td></td><td></td></tr>"
                             html += "</table><br>"
-                        st.markdown(html, unsafe_allow_html=True)
+                        
+                        final_html = wrap_html_for_print(f"{p_meet} Split Sheet", html)
+                        st.success("Your printable sheet is ready!")
+                        st.download_button(label="📥 Download Printable HTML Sheet", data=final_html, file_name=f"{p_meet.replace(' ', '_')}_Sheet.html", mime="text/html")
 
     # ----------------------------------
     # ATHLETE VIEW

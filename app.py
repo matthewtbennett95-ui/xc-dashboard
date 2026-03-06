@@ -142,30 +142,39 @@ def seconds_to_time(seconds):
     if seconds <= 0: return ""
     mins = int(seconds // 60)
     secs = int(seconds % 60)
-    return f"{mins}:{secs:02d}"
+    # Handles decimal precision elegantly for UI display
+    return f"{mins}:{secs:05.2f}".replace(".00", "")
 
 def parse_fast_time(val, mode):
     if pd.isna(val) or str(val).strip() == "": return ""
     val_str = str(val).strip()
     if ":" in val_str: return val_str
-    if not val_str.isdigit(): return val_str 
+    if not val_str.replace('.', '').isdigit(): return val_str 
     
-    num = int(val_str)
+    num = float(val_str)
     if "Total Seconds" in mode:
-        mins = num // 60
+        mins = int(num // 60)
         secs = num % 60
-        return f"{mins}:{secs:02d}"
+        return f"{mins}:{secs:05.2f}".replace(".00", "")
     else:
-        if len(val_str) <= 2:
-            mins = num // 60
-            secs = num % 60
-            return f"{mins}:{secs:02d}"
+        if "." in val_str:
+            parts = val_str.split('.')
+            whole_num = int(parts[0])
+            decimal_part = "." + parts[1]
         else:
-            secs = int(val_str[-2:])
-            mins = int(val_str[:-2])
+            whole_num = int(val_str)
+            decimal_part = ""
+            
+        if len(str(whole_num)) <= 2:
+            mins = whole_num // 60
+            secs = whole_num % 60
+            return f"{mins}:{secs:02d}{decimal_part}"
+        else:
+            secs = int(str(whole_num)[-2:])
+            mins = int(str(whole_num)[:-2])
             mins += secs // 60
             secs = secs % 60
-            return f"{mins}:{secs:02d}"
+            return f"{mins}:{secs:02d}{decimal_part}"
 
 def get_grade_level(grad_year_str):
     if str(grad_year_str).upper() == "COACH" or not str(grad_year_str).strip().isdigit(): return "Coach"
@@ -227,7 +236,6 @@ def get_weather_for_date(date_str):
     except Exception as e:
         return "Can't access weather data"
 
-# HIGHLY OPTIMIZED HTML WRAPPER FOR PDF PRINTING
 def wrap_html_for_print(title, body_content, is_attendance=False):
     page_settings = "size: portrait;" if is_attendance else "size: auto;"
     
@@ -412,6 +420,49 @@ def show_rankings_tab():
         
         st.dataframe(pivot_df, hide_index=True, use_container_width=True)
 
+# --- NEW: CAREER PR PROGRESSION ---
+def display_career_history(target_username):
+    user_races = races_data[(races_data["Username"] == target_username) & (races_data["Active"].isin(["TRUE", "1", "1.0"]))].copy()
+    if user_races.empty:
+        st.info("No race data found for career history.")
+        return
+        
+    user_races["Time_Sec"] = user_races["Total_Time"].apply(time_to_seconds)
+    user_races = user_races[user_races["Time_Sec"] > 0]
+    
+    found_any = False
+    for dist in ["5K", "2 Mile"]:
+        dist_races = user_races[user_races["Distance"].str.upper() == dist.upper()].copy()
+        if dist_races.empty: continue
+        
+        found_any = True
+        st.markdown(f"### 🏆 {dist} Season-by-Season PRs")
+        
+        # Find the absolute best time for each season
+        idx = dist_races.groupby("Season")["Time_Sec"].idxmin()
+        prs = dist_races.loc[idx].sort_values("Season")
+        
+        # Bar Chart showing Progression Year-over-Year
+        fig = px.bar(prs, x="Season", y="Time_Sec", text="Total_Time",
+                     hover_data={"Meet_Name": True, "Date": True, "Time_Sec": False},
+                     title=f"{dist} Progression")
+        fig.update_traces(marker_color=THEMES[st.session_state["theme"]]["line"], textposition="outside", textfont=dict(size=14, color=THEMES[st.session_state["theme"]]["text"]))
+        # Hide the raw seconds on Y axis, make it look clean
+        fig.update_yaxes(visible=False, showgrid=False) 
+        fig.update_xaxes(title="Season", type="category")
+        fig.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"], margin=dict(t=40, b=0, l=0, r=0))
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Summary Grid underneath
+        clean_prs = prs[["Season", "Total_Time", "Meet_Name", "Date"]].rename(
+            columns={"Total_Time": "PR Time", "Meet_Name": "Meet", "Date": "Date Achieved"}
+        )
+        st.dataframe(clean_prs, hide_index=True, use_container_width=True)
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        
+    if not found_any:
+        st.info("No valid 5K or 2 Mile races found to build progression history.")
+
 def plot_athlete_progress(user_races):
     df = user_races[(user_races["Distance"].str.upper() == "5K") & (user_races["Time_Sec"] > 0)].copy()
     if df.empty or len(df) < 2:
@@ -423,7 +474,7 @@ def plot_athlete_progress(user_races):
     
     fig = px.line(
         df, x="Date_Obj", y="Time_Min", markers=True, 
-        title="📈 5K Progression",
+        title="📈 Current Season 5K Progression",
         hover_data={"Date_Obj": "|%b %d, %Y", "Time_Min": False, "Total_Time": True, "Meet_Name": True}
     )
     
@@ -474,24 +525,83 @@ def display_athlete_races(target_username, target_season):
     else:
         st.info("No active race data found for this season.")
 
+# --- NEW: WORKOUT FILTERING & STANDARD DEVIATION ---
 def display_athlete_workouts(target_username, target_season):
     user_workouts = workouts_data[(workouts_data["Username"] == target_username) & (workouts_data["Season"] == target_season)].copy()
-    if not user_workouts.empty:
-        user_workouts["Date_Obj"] = pd.to_datetime(user_workouts["Date"], errors='coerce')
-        user_workouts = user_workouts.sort_values(by="Date_Obj", ascending=False)
+    if user_workouts.empty:
+        return st.info("No workout data found for this season.")
         
-        for idx, row in user_workouts.iterrows():
-            if pd.isna(row["Weather"]) or str(row["Weather"]).strip() == "":
-                user_workouts.at[idx, "Weather"] = get_weather_for_date(row["Date"])
+    user_workouts["Date_Obj"] = pd.to_datetime(user_workouts["Date"], errors='coerce')
+    user_workouts = user_workouts.sort_values(by="Date_Obj", ascending=False)
+    
+    for idx, row in user_workouts.iterrows():
+        if pd.isna(row["Weather"]) or str(row["Weather"]).strip() == "":
+            user_workouts.at[idx, "Weather"] = get_weather_for_date(row["Date"])
+            
+    user_workouts["Date_Formatted"] = user_workouts["Date_Obj"].dt.strftime('%m/%d/%Y').fillna("Unknown")
+    
+    # Create a unique "Combo" key to group identical workout types
+    user_workouts["Combo"] = user_workouts["Workout_Type"] + " (" + user_workouts["Rep_Distance"] + ")"
+    present_workouts = user_workouts[user_workouts["Status"] == "Present"]
+    unique_combos = present_workouts["Combo"].unique().tolist()
+    
+    st.markdown("### 🔍 Filter Workouts")
+    sel_combo = st.selectbox("Compare your pacing across the season:", ["-- View All Workouts --"] + unique_combos)
+    st.markdown("---")
+    
+    if sel_combo != "-- View All Workouts --":
+        st.subheader(f"{sel_combo} Analysis")
+        filtered = present_workouts[present_workouts["Combo"] == sel_combo].sort_values("Date_Obj", ascending=True)
+        
+        graph_data = []
+        for idx, row in filtered.iterrows():
+            splits = [s.strip() for s in str(row["Splits"]).split(",") if s.strip()]
+            sec_splits = [time_to_seconds(s) for s in splits if time_to_seconds(s) > 0]
+            
+            if len(sec_splits) > 0:
+                s_series = pd.Series(sec_splits)
+                avg_sec = s_series.mean()
+                std_sec = s_series.std() if len(s_series) > 1 else 0
                 
-        user_workouts["Date"] = user_workouts["Date_Obj"].dt.strftime('%m/%d/%Y').fillna("Unknown")
+                # Assign math back to dataframe for table display
+                user_workouts.at[idx, "Avg_Split"] = seconds_to_time(avg_sec)
+                user_workouts.at[idx, "Consistency"] = f"± {std_sec:.1f} sec"
+                
+                # Store points for visual graph
+                for i, s in enumerate(sec_splits):
+                    graph_data.append({
+                        "Date": row["Date_Obj"].strftime("%b %d"),
+                        "Split Time": s,
+                        "Formatted Time": seconds_to_time(s),
+                        "Rep": f"Rep {i+1}"
+                    })
+                    
+        # Generate the Consistency Scatter Plot
+        if graph_data:
+            gdf = pd.DataFrame(graph_data)
+            fig = px.scatter(gdf, x="Date", y="Split Time", color="Rep",
+                             title="Pace Spread (Tighter is Better!)",
+                             hover_data={"Split Time": False, "Formatted Time": True})
+                             
+            fig.update_yaxes(title="Split Time", autorange="reversed") # Reverse Y so faster times are visually higher
+            fig.update_xaxes(title="Workout Date")
+            fig.update_traces(marker=dict(size=10, opacity=0.8, line=dict(width=1, color='DarkSlateGrey')))
+            fig.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"])
+            st.plotly_chart(fig, use_container_width=True)
+            
+        display_cols = ["Date_Formatted", "Avg_Split", "Consistency", "Splits", "Weather"]
+        clean_table = user_workouts.loc[filtered.index, [c for c in display_cols if c in user_workouts.columns]]
+        clean_table = clean_table.rename(columns={"Date_Formatted": "Date", "Avg_Split": "Avg Pace", "Consistency": "Standard Dev"})
+        st.dataframe(clean_table, hide_index=True, use_container_width=True)
         
-        display_cols = ["Date", "Workout_Type", "Rep_Distance", "Status", "Splits", "Weather"]
-        rename_dict = {"Workout_Type": "Type", "Rep_Distance": "Details"}
+    else:
+        # Default all-workout view
+        st.subheader("All Workout Logs")
+        display_cols = ["Date_Formatted", "Workout_Type", "Rep_Distance", "Status", "Splits", "Weather"]
+        rename_dict = {"Date_Formatted": "Date", "Workout_Type": "Type", "Rep_Distance": "Details"}
         clean_table = user_workouts[display_cols].rename(columns=rename_dict)
         st.dataframe(clean_table, hide_index=True, use_container_width=True)
-    else:
-        st.info("No workout data found for this season.")
+
 
 # ==========================================
 # --- 6. LOGIN & SECURITY PAGES ---
@@ -578,9 +688,10 @@ def home_page():
                     
                     sel_season = st.selectbox("View Season:", athlete_seasons, key="coach_athlete_season")
                     
-                    sub_tab1, sub_tab2 = st.tabs(["Race Results", "Workouts"])
+                    sub_tab1, sub_tab2, sub_tab3 = st.tabs(["Race Results", "Workouts", "Career PRs"])
                     with sub_tab1: display_athlete_races(selected_username, sel_season)
                     with sub_tab2: display_athlete_workouts(selected_username, sel_season)
+                    with sub_tab3: display_career_history(selected_username)
                 
         with tab2:
             st.subheader("Roster Management")
@@ -1289,7 +1400,7 @@ def home_page():
         st.header("Training Dashboard")
         st.markdown("Your historical training and race data is below.")
         
-        tab_dash, tab_rankings = st.tabs(["My Dashboard", "Team Rankings"])
+        tab_dash, tab_career, tab_rankings = st.tabs(["My Season", "Career History", "Team Rankings"])
         
         with tab_dash:
             u_races = races_data[races_data["Username"] == st.session_state["username"]]
@@ -1321,6 +1432,9 @@ def home_page():
             sub_races, sub_workouts = st.tabs(["Race Results", "Workouts"])
             with sub_races: display_athlete_races(st.session_state["username"], sel_season)
             with sub_workouts: display_athlete_workouts(st.session_state["username"], sel_season)
+            
+        with tab_career:
+            display_career_history(st.session_state["username"])
             
         with tab_rankings:
             show_rankings_tab()

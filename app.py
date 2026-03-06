@@ -9,49 +9,73 @@ from streamlit_gsheets import GSheetsConnection
 # ==========================================
 st.set_page_config(page_title="MCXC Team Dashboard", layout="centered", page_icon="🏃")
 
-# Define our visual themes
+# Define expanded visual themes (Now with backgrounds, text colors, and chart templates!)
 THEMES = {
-    "MCXC Classic": {
+    "MCXC Classic (Light)": {
         "bar": "linear-gradient(to right, #8B2331, #0C223F, #C7B683)", 
-        "bg": "rgba(139, 35, 49, 0.05)", 
-        "border": "rgba(139, 35, 49, 0.2)",
-        "line": "#8B2331"
+        "metric_bg": "rgba(139, 35, 49, 0.05)", "metric_border": "rgba(139, 35, 49, 0.2)",
+        "line": "#8B2331", "app_bg": "#FFFFFF", "text": "#31333F", 
+        "sidebar_bg": "#F0F2F6", "plotly_template": "plotly_white"
     },
-    "Neon Runner": {
-        "bar": "linear-gradient(to right, #FF007F, #7928CA, #FF007F)", 
-        "bg": "rgba(121, 40, 202, 0.05)", 
-        "border": "rgba(255, 0, 127, 0.3)",
-        "line": "#FF007F"
+    "Midnight Runner (Dark)": {
+        "bar": "linear-gradient(to right, #FF4B4B, #FF904F)", 
+        "metric_bg": "rgba(255, 75, 75, 0.1)", "metric_border": "rgba(255, 75, 75, 0.3)",
+        "line": "#FF4B4B", "app_bg": "#0E1117", "text": "#FAFAFA", 
+        "sidebar_bg": "#262730", "plotly_template": "plotly_dark"
     },
-    "Ocean Pace": {
+    "Neon Track (Dark)": {
+        "bar": "linear-gradient(to right, #FF007F, #7928CA, #00C9FF)", 
+        "metric_bg": "rgba(121, 40, 202, 0.15)", "metric_border": "rgba(255, 0, 127, 0.4)",
+        "line": "#FF007F", "app_bg": "#121212", "text": "#E0E0E0", 
+        "sidebar_bg": "#1E1E1E", "plotly_template": "plotly_dark"
+    },
+    "Ocean Pace (Light)": {
         "bar": "linear-gradient(to right, #00C9FF, #92FE9D)", 
-        "bg": "rgba(0, 201, 255, 0.05)", 
-        "border": "rgba(0, 201, 255, 0.3)",
-        "line": "#00C9FF"
+        "metric_bg": "rgba(0, 201, 255, 0.05)", "metric_border": "rgba(0, 201, 255, 0.3)",
+        "line": "#00C9FF", "app_bg": "#F4F8FB", "text": "#1A2A3A", 
+        "sidebar_bg": "#E5F0F9", "plotly_template": "plotly_white"
     }
 }
 
 # Ensure a theme is always selected in session state
 if "theme" not in st.session_state:
-    st.session_state["theme"] = "MCXC Classic"
+    st.session_state["theme"] = "MCXC Classic (Light)"
 
 current_theme = THEMES[st.session_state["theme"]]
 
-# Inject dynamic CSS based on the selected theme
+# Inject heavy-duty CSS to override Streamlit's default backgrounds and text
 st.markdown(f"""
     <style>
+        /* Main App Background */
+        .stApp {{
+            background-color: {current_theme['app_bg']};
+        }}
+        /* Sidebar Background */
+        [data-testid="stSidebar"] {{
+            background-color: {current_theme['sidebar_bg']};
+        }}
+        /* Force Header to be transparent so background shows through */
+        [data-testid="stHeader"] {{
+            background-color: transparent;
+        }}
+        /* Top Gradient Bar */
         .color-bar {{
             height: 8px;
             background: {current_theme['bar']};
             margin-bottom: 2rem;
             border-radius: 4px;
         }}
+        /* Metric Containers */
         div[data-testid="metric-container"] {{
-            background-color: {current_theme['bg']};
-            border: 1px solid {current_theme['border']};
+            background-color: {current_theme['metric_bg']};
+            border: 1px solid {current_theme['metric_border']};
             padding: 10px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }}
+        /* Override primary text colors (Headings, Paragraphs, Labels) */
+        h1, h2, h3, h4, p, span, label {{
+            color: {current_theme['text']} !important;
         }}
     </style>
     <div class="color-bar"></div>
@@ -239,7 +263,10 @@ def plot_athlete_progress(user_races):
     fig.update_yaxes(title="Finish Time (Minutes)", autorange="reversed")
     fig.update_xaxes(title="Race Date")
     
-    # Theme color formatting
+    # NEW: Apply the selected theme's Plotly template (Dark/Light mode for the chart background)
+    fig.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"])
+    
+    # Theme color formatting for the actual line
     theme_line_color = THEMES[st.session_state["theme"]]["line"]
     fig.update_traces(line_color=theme_line_color, line_width=3, marker_size=8)
     

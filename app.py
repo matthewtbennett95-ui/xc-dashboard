@@ -196,6 +196,42 @@ def get_grade_level(grad_year_str):
     else: return "Unknown"
 
 # ==========================================
+# --- WEATHER API HELPER ---
+# ==========================================
+@st.cache_data(ttl=86400) # Cache data for 24 hours to keep the app blazing fast
+def get_weather_for_date(date_str):
+    # UPDATE THESE TO YOUR SCHOOL'S EXACT COORDINATES
+    LATITUDE = 40.7128  
+    LONGITUDE = -74.0060 
+    
+    try:
+        # Format date for the API (YYYY-MM-DD)
+        d = pd.to_datetime(date_str).strftime('%Y-%m-%d')
+        
+        url = f"https://archive-api.open-meteo.com/v1/archive?latitude={LATITUDE}&longitude={LONGITUDE}&start_date={d}&end_date={d}&daily=temperature_2m_max,precipitation_sum&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America/New_York"
+        
+        res = requests.get(url)
+        if res.status_code == 200:
+            data = res.json()
+            temp = data.get('daily', {}).get('temperature_2m_max', [None])[0]
+            precip = data.get('daily', {}).get('precipitation_sum', [None])[0]
+            
+            if temp is None:
+                return "No Data"
+                
+            # Keep it clean and text-only (no emojis)
+            desc = f"{round(temp)}°F"
+            if precip and precip > 0.05:
+                desc += f" ({round(precip, 1)}in Rain)"
+            else:
+                desc += " (Dry)"
+                
+            return desc
+        return "API Error"
+    except Exception as e:
+        return "N/A"
+
+# ==========================================
 # --- 3. DATABASE CONNECTION & CLEANUP ---
 # ==========================================
 conn = st.connection("gsheets", type=GSheetsConnection)

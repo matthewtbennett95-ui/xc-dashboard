@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import datetime
+import requests
 import plotly.express as px  # For interactive charting
 from streamlit_gsheets import GSheetsConnection
 

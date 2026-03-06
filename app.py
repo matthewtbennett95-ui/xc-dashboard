@@ -241,7 +241,6 @@ def wrap_html_for_print(title, body_content, is_attendance=False):
     @page {{ margin: 0.5in; {page_settings} }}
     table {{ width: 100%; border-collapse: collapse; margin-bottom: 15px; page-break-inside: auto; }}
     tr {{ page-break-inside: avoid; page-break-after: auto; }}
-    /* Drastically reduced padding and font size for maximum density */
     th, td {{ border: 1px solid #000; padding: 3px 5px; text-align: left; font-size: 11px; }}
     th {{ background-color: #f2f2f2; font-weight: bold; font-size: 12px; }}
     h2 {{ margin: 5px 0 10px 0; font-size: 18px; text-align: center; font-weight: bold; }}
@@ -1100,20 +1099,35 @@ def home_page():
                     active_athletes = active_athletes[active_athletes["Gender"].str.title() == target_gender].sort_values(by="Last_Name")
                     
                     if p_type == "Summer":
-                        cols = ["Mon In", "Mon Out", "Tues In", "Tues Out", "Thur In", "Thur Out"]
+                        # Tuple: (Column Header Text, Is_Shaded_Boolean)
+                        columns_data = [
+                            ("Mon In", True), ("Mon Out", True),
+                            ("Tues In", False), ("Tues Out", False),
+                            ("Thur In", True), ("Thur Out", True)
+                        ]
                     else:
-                        cols = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+                        columns_data = [
+                            ("Mon In", True), ("Mon Out", True),
+                            ("Tues In", False), ("Tues Out", False),
+                            ("Wed In", True), ("Wed Out", True),
+                            ("Thurs In", False), ("Thurs Out", False),
+                            ("Fri In", True), ("Fri Out", True)
+                        ]
                         
                     html = f"<h2>{p_gender.upper()} {p_type.upper()} ATTENDANCE</h2>"
                     if p_week: html += f"<h3>WEEK OF: {p_week}</h3>"
                     
                     html += "<table><tr><th>Runner</th>"
-                    for c in cols: html += f"<th>{c}</th>"
+                    for c_text, is_shaded in columns_data:
+                        bg_color = "#e2e8f0" if is_shaded else "#ffffff"
+                        html += f"<th style='background-color: {bg_color} !important;'>{c_text}</th>"
                     html += "</tr>"
                     
                     for _, row in active_athletes.iterrows():
                         html += f"<tr><td>{row['Last_Name']}, {row['First_Name']}</td>"
-                        for _ in cols: html += "<td></td>"
+                        for c_text, is_shaded in columns_data:
+                            bg_color = "#f1f5f9" if is_shaded else "#ffffff"
+                            html += f"<td style='background-color: {bg_color} !important;'></td>"
                         html += "</tr>"
                     html += "</table>"
                     

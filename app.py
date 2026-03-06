@@ -201,8 +201,8 @@ def get_grade_level(grad_year_str):
 @st.cache_data(ttl=86400) # Cache data for 24 hours to keep the app blazing fast
 def get_weather_for_date(date_str):
     # UPDATE THESE TO YOUR SCHOOL'S EXACT COORDINATES
-    LATITUDE = 40.7128  
-    LONGITUDE = -74.0060 
+    LATITUDE = 34.077604
+    LONGITUDE = -83.877289
     
     try:
         # Format date for the API (YYYY-MM-DD)
@@ -451,6 +451,14 @@ def display_athlete_workouts(target_username):
     if not user_workouts.empty:
         user_workouts["Date_Obj"] = pd.to_datetime(user_workouts["Date"], errors='coerce')
         user_workouts = user_workouts.sort_values(by="Date_Obj", ascending=False)
+        
+        # --- NEW WEATHER LOGIC ---
+        # Automatically fetch weather ONLY if the coach left it blank during Data Entry
+        for idx, row in user_workouts.iterrows():
+            if pd.isna(row["Weather"]) or str(row["Weather"]).strip() == "":
+                user_workouts.at[idx, "Weather"] = get_weather_for_date(row["Date"])
+        # -------------------------
+        
         user_workouts["Date"] = user_workouts["Date_Obj"].dt.strftime('%m/%d/%Y').fillna("Unknown")
         
         display_cols = ["Date", "Workout_Type", "Rep_Distance", "Status", "Splits", "Weather"]
@@ -459,7 +467,6 @@ def display_athlete_workouts(target_username):
         st.dataframe(clean_table, hide_index=True, use_container_width=True)
     else:
         st.info("No workout data found yet for this season.")
-
 
 # ==========================================
 # --- 6. LOGIN & SECURITY PAGES ---

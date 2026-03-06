@@ -110,7 +110,6 @@ st.markdown(f"""
             color: {current_theme['text']} !important;
         }}
         
-        /* Base Button Styling (kills the default white boxes) */
         div.stButton > button, div.stFormSubmitButton > button {{
             background-color: {current_theme['sidebar_bg']} !important;
             color: {current_theme['text']} !important;
@@ -118,7 +117,6 @@ st.markdown(f"""
             transition: all 0.3s ease;
         }}
         
-        /* Fix button hover colors and animations */
         div.stButton > button:hover, div.stFormSubmitButton > button:hover {{
             border-color: {current_theme['line']} !important;
             color: {current_theme['line']} !important;
@@ -186,6 +184,17 @@ def get_grade_level(grad_year_str):
     elif grade > 12: return "Alumni"
     else: return "Unknown"
 
+# NEW: Dynamically assign a year to a date. (e.g. Any date from July 2025 to June 2026 = "2025" Season)
+def calculate_season(date_val):
+    try:
+        d = pd.to_datetime(date_val)
+        if pd.isna(d): return str(datetime.date.today().year)
+        return str(d.year) if d.month >= 7 else str(d.year - 1)
+    except:
+        return str(datetime.date.today().year)
+
+CURRENT_SEASON = calculate_season(datetime.date.today())
+
 @st.cache_data(ttl=86400) 
 def get_weather_for_date(date_str):
     LATITUDE = 34.077604
@@ -194,10 +203,8 @@ def get_weather_for_date(date_str):
     try:
         d_obj = pd.to_datetime(date_str)
         d = d_obj.strftime('%Y-%m-%d')
-        
         days_ago = (pd.to_datetime("today") - d_obj).days
         
-        # Smart switching: Archive API for history, Forecast API for recent dates
         if days_ago > 60:
             url = f"https://archive-api.open-meteo.com/v1/archive?latitude={LATITUDE}&longitude={LONGITUDE}&start_date={d}&end_date={d}&daily=temperature_2m_max,precipitation_sum&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America/New_York"
         else:
@@ -217,7 +224,6 @@ def get_weather_for_date(date_str):
                 desc += f" ({round(precip, 1)}in Rain)"
             else:
                 desc += " (Dry)"
-                
             return desc
         return "Can't access weather data"
     except Exception as e:
@@ -252,16 +258,26 @@ else:
 if "Gender" not in roster_data.columns: 
     roster_data["Gender"] = "N/A"
 
-expected_race_cols = ["Date", "Meet_Name", "Race_Name", "Distance", "Username", "Mile_1", "Mile_2", "Total_Time", "Weight"]
+expected_race_cols = ["Date", "Meet_Name", "Race_Name", "Distance", "Username", "Mile_1", "Mile_2", "Total_Time", "Weight", "Active"]
 for col in expected_race_cols:
     if col not in races_data.columns: 
-        races_data[col] = 1.0 if col == "Weight" else ""
+        if col == "Weight": races_data[col] = 1.0
+        elif col == "Active": races_data[col] = "TRUE"
+        else: races_data[col] = ""
+
 races_data["Weight"] = pd.to_numeric(races_data["Weight"], errors="coerce").fillna(1.0)
+races_data["Active"] = races_data["Active"].astype(str).str.strip().str.upper()
+races_data.loc[races_data["Active"] == "NAN", "Active"] = "TRUE"
+races_data.loc[races_data["Active"] == "", "Active"] = "TRUE"
 
 expected_workout_cols = ["Date", "Workout_Type", "Rep_Distance", "Weather", "Username", "Status", "Splits"]
 for col in expected_workout_cols:
     if col not in workouts_data.columns: 
         workouts_data[col] = ""
+
+# NEW: Automatically Tag Every Row with a Season
+races_data["Season"] = races_data["Date"].apply(calculate_season)
+workouts_data["Season"] = workouts_data["Date"].apply(calculate_season)
 
 # ==========================================
 # --- 4. SESSION STATE MANAGEMENT ---
@@ -288,18 +304,27 @@ def logout():
 def show_rankings_tab():
     st.subheader("Team Rankings & Season Grid")
     
-    r_col1, r_col2 = st.columns(2)
-    with r_col1: r_gender = st.selectbox("Category", ["Men's", "Women's"], key="rankings_category")
-    with r_col2: r_dist = st.selectbox("Distance", ["5K", "2 Mile"], key="rankings_distance")
+    r_col1, r_col2, r_col3 = st.columns(3)
+    
+    # NEW: Season selector for rankings!
+    available_seasons = sorted(races_data["Season"].unique().tolist(), reverse=True)
+    if not available_seasons: available_seasons = [CURRENT_SEASON]
+    with r_col1: r_season = st.selectbox("Season", available_seasons, key="rankings_season")
+    with r_col2: r_gender = st.selectbox("Category", ["Men's", "Women's"], key="rankings_category")
+    with r_col3: r_dist = st.selectbox("Distance", ["5K", "2 Mile"], key="rankings_distance")
         
     target_gender = "Male" if r_gender == "Men's" else "Female"
     
     merged = pd.merge(races_data, roster_data[["Username", "First_Name", "Last_Name", "Gender", "Active_Clean"]], on="Username", how="inner")
+    
     merged = merged[merged["Active_Clean"].isin(["TRUE", "1", "1.0"])]
-    merged = merged[(merged["Gender"].str.title() == target_gender) & (merged["Distance"].str.upper() == r_dist.upper())]
+    merged = merged[merged["Active"].isin(["TRUE", "1", "1.0"])]
+    
+    # NEW: Filter merged dataframe by the dropdown season
+    merged = merged[(merged["Gender"].str.title() == target_gender) & (merged["Distance"].str.upper() == r_dist.upper()) & (merged["Season"] == r_season)]
     
     if merged.empty:
-        st.info("No race data found for this category.")
+        st.info("No active race data found for this category and season.")
         return
     
     tab_lead, tab_grid = st.tabs(["Leaderboard", "Master Grid"])
@@ -380,11 +405,15 @@ def plot_athlete_progress(user_races):
     st.plotly_chart(fig, use_container_width=True)
     st.markdown("---")
 
-def display_athlete_races(target_username):
-    user_races = races_data[races_data["Username"] == target_username].copy()
+def display_athlete_races(target_username, target_season):
+    # Filter for active races AND specific season
+    user_races = races_data[(races_data["Username"] == target_username) & (races_data["Active"].isin(["TRUE", "1", "1.0"])) & (races_data["Season"] == target_season)].copy()
     if not user_races.empty:
         user_races["Time_Sec"] = user_races["Total_Time"].apply(time_to_seconds)
         user_races = user_races[user_races["Time_Sec"] > 0] 
+        
+        user_races["Date_Obj"] = pd.to_datetime(user_races["Date"], errors='coerce')
+        user_races = user_races.sort_values(by="Date_Obj", ascending=True)
         
         plot_athlete_progress(user_races)
         
@@ -398,7 +427,7 @@ def display_athlete_races(target_username):
             
         user_races["Avg_Pace"] = user_races.apply(calculate_avg_pace, axis=1)
         user_races["Final_Kick"] = user_races.apply(calculate_kick, axis=1)
-        user_races["Date"] = pd.to_datetime(user_races["Date"], errors='coerce').dt.strftime('%m/%d/%Y').fillna("Unknown")
+        user_races["Date"] = user_races["Date_Obj"].dt.strftime('%m/%d/%Y').fillna("Unknown")
         
         unique_distances = user_races["Distance"].unique()
         for dist in unique_distances:
@@ -412,15 +441,14 @@ def display_athlete_races(target_username):
             st.dataframe(clean_table, hide_index=True, use_container_width=True)
             st.markdown("<br>", unsafe_allow_html=True)
     else:
-        st.info("No race data found yet for this season.")
+        st.info("No active race data found for this season.")
 
-def display_athlete_workouts(target_username):
-    user_workouts = workouts_data[workouts_data["Username"] == target_username].copy()
+def display_athlete_workouts(target_username, target_season):
+    user_workouts = workouts_data[(workouts_data["Username"] == target_username) & (workouts_data["Season"] == target_season)].copy()
     if not user_workouts.empty:
         user_workouts["Date_Obj"] = pd.to_datetime(user_workouts["Date"], errors='coerce')
         user_workouts = user_workouts.sort_values(by="Date_Obj", ascending=False)
         
-        # Populate missing weather for any older workouts displayed
         for idx, row in user_workouts.iterrows():
             if pd.isna(row["Weather"]) or str(row["Weather"]).strip() == "":
                 user_workouts.at[idx, "Weather"] = get_weather_for_date(row["Date"])
@@ -432,7 +460,7 @@ def display_athlete_workouts(target_username):
         clean_table = user_workouts[display_cols].rename(columns=rename_dict)
         st.dataframe(clean_table, hide_index=True, use_container_width=True)
     else:
-        st.info("No workout data found yet for this season.")
+        st.info("No workout data found for this season.")
 
 # ==========================================
 # --- 6. LOGIN & SECURITY PAGES ---
@@ -511,9 +539,18 @@ def home_page():
                 selected_username = st.selectbox("Select an Athlete:", options=list(athlete_dict.keys()), format_func=lambda x: athlete_dict[x])
                 if selected_username: 
                     st.markdown("---")
+                    
+                    # Dynamically find the seasons this specific athlete has participated in
+                    u_races = races_data[races_data["Username"] == selected_username]
+                    u_works = workouts_data[workouts_data["Username"] == selected_username]
+                    athlete_seasons = sorted(list(set(u_races["Season"].tolist() + u_works["Season"].tolist())), reverse=True)
+                    if not athlete_seasons: athlete_seasons = [CURRENT_SEASON]
+                    
+                    sel_season = st.selectbox("View Season:", athlete_seasons, key="coach_athlete_season")
+                    
                     sub_tab1, sub_tab2 = st.tabs(["Race Results", "Workouts"])
-                    with sub_tab1: display_athlete_races(selected_username)
-                    with sub_tab2: display_athlete_workouts(selected_username)
+                    with sub_tab1: display_athlete_races(selected_username, sel_season)
+                    with sub_tab2: display_athlete_workouts(selected_username, sel_season)
                 
         with tab2:
             st.subheader("Roster Management")
@@ -652,19 +689,42 @@ def home_page():
                             st.rerun()
 
         with tab3:
-            # Updated to say "Manage Meet Weights" instead of Race
-            de_type = st.radio("Select Entry Mode", ["Race Results", "Workouts", "Manage Meet Weights"], horizontal=True)
+            de_type = st.radio("Select Entry Mode", ["Race Results", "Workouts", "Manage Meet Weights", "Archive Specific Meet"], horizontal=True)
             st.markdown("---")
             
-            if de_type == "Manage Meet Weights":
-                st.subheader("Manage Meet Multipliers & Weights")
-                st.markdown("Adjust how heavily a **Meet** impacts the **Weighted Average** Rankings. Set a meet to **0** to hide it from rankings entirely, or **2.0** to double its weight. (This applies to all races within the meet).")
+            if de_type == "Archive Specific Meet":
+                st.subheader("Archive a Single Meet")
+                st.markdown("Hiding a meet from the active dashboard (e.g. if you entered fake data or want to hide a specific event). Data remains in the database.")
                 
-                # NEW LOGIC: Drop duplicates based on the Meet and Date, ignoring the individual races
-                unique_meets = races_data[["Meet_Name", "Date", "Weight"]].drop_duplicates(subset=["Meet_Name", "Date"])
+                active_races_mask = races_data["Active"].isin(["TRUE", "1", "1.0"])
+                active_meets = races_data[active_races_mask][["Meet_Name", "Date"]].drop_duplicates()
+                
+                if active_meets.empty:
+                    st.info("No active meets available to archive.")
+                else:
+                    meet_options = {f"{row['Meet_Name']}|{row['Date']}": f"{pd.to_datetime(row['Date'], errors='coerce').strftime('%m/%d/%Y')} | {row['Meet_Name']}" for _, row in active_meets.iterrows()}
+                    with st.form("archive_meet_form"):
+                        meet_to_archive = st.selectbox("Select Meet", options=list(meet_options.keys()), format_func=lambda x: meet_options[x])
+                        if st.form_submit_button("Archive Meet"):
+                            m_name, m_date = meet_to_archive.split("|")
+                            mask = (races_data["Meet_Name"] == m_name) & (races_data["Date"] == m_date)
+                            races_data.loc[mask, "Active"] = "FALSE"
+                            with st.spinner("Archiving..."):
+                                conn.update(worksheet="Races", data=races_data)
+                            st.success(f"Archived {m_name}!")
+                            st.cache_data.clear()
+                            st.rerun()
+
+            elif de_type == "Manage Meet Weights":
+                st.subheader("Manage Meet Multipliers & Weights")
+                st.info(f"Currently managing weights for the **{CURRENT_SEASON}** season.")
+                
+                # ONLY Pull meets from the Current Season
+                active_races = races_data[(races_data["Active"].isin(["TRUE", "1", "1.0"])) & (races_data["Season"] == CURRENT_SEASON)]
+                unique_meets = active_races[["Meet_Name", "Date", "Weight"]].drop_duplicates(subset=["Meet_Name", "Date"])
                 
                 if unique_meets.empty or unique_meets["Meet_Name"].isna().all(): 
-                    st.info("No meets logged yet.")
+                    st.info("No meets logged yet for the current season.")
                 else:
                     with st.form("weights_form"):
                         updated_weights = {}
@@ -672,7 +732,6 @@ def home_page():
                             meet = row["Meet_Name"]
                             date = row["Date"]
                             current_w = row["Weight"]
-                            # Clean label showing just Date and Meet Name
                             label = f"{pd.to_datetime(date, errors='coerce').strftime('%m/%d/%Y')} | {meet}"
                             
                             new_w = st.number_input(label, value=float(current_w), step=0.5, min_value=0.0, key=f"weight_input_{index}")
@@ -680,7 +739,6 @@ def home_page():
                             
                         if st.form_submit_button("Save Weights", type="primary"):
                             for (m, d), w in updated_weights.items():
-                                # Apply the new weight to ALL rows matching this Meet and Date
                                 mask = (races_data["Meet_Name"] == m) & (races_data["Date"] == d)
                                 races_data.loc[mask, "Weight"] = w
                                 
@@ -761,7 +819,7 @@ def home_page():
                             
                         if st.form_submit_button("Save Result"):
                             if total_time:
-                                new_row = pd.DataFrame([{"Date": pd.to_datetime(st.session_state.current_meet_date).strftime("%Y-%m-%d"), "Meet_Name": st.session_state.current_meet, "Race_Name": st.session_state.current_race, "Distance": st.session_state.current_distance, "Username": runner_selected, "Mile_1": m1_time, "Mile_2": m2_time, "Total_Time": total_time, "Weight": 1.0}])
+                                new_row = pd.DataFrame([{"Date": pd.to_datetime(st.session_state.current_meet_date).strftime("%Y-%m-%d"), "Meet_Name": st.session_state.current_meet, "Race_Name": st.session_state.current_race, "Distance": st.session_state.current_distance, "Username": runner_selected, "Mile_1": m1_time, "Mile_2": m2_time, "Total_Time": total_time, "Weight": 1.0, "Active": "TRUE"}])
                                 with st.spinner("Saving..."): conn.update(worksheet="Races", data=pd.concat([races_data, new_row], ignore_index=True))
                                 st.cache_data.clear()
                                 st.rerun()
@@ -995,15 +1053,24 @@ def home_page():
         st.header("Training Dashboard")
         st.markdown("Your historical training and race data is below.")
         
-        tab_dash, tab_rankings = st.tabs(["Leaderboard", "Master Grid"])
+        tab_dash, tab_rankings = st.tabs(["My Dashboard", "Team Rankings"])
         
         with tab_dash:
-            user_races = races_data[races_data["Username"] == st.session_state["username"]].copy()
-            user_workouts = workouts_data[workouts_data["Username"] == st.session_state["username"]].copy()
+            u_races = races_data[races_data["Username"] == st.session_state["username"]]
+            u_works = workouts_data[workouts_data["Username"] == st.session_state["username"]]
+            
+            athlete_seasons = sorted(list(set(u_races["Season"].tolist() + u_works["Season"].tolist())), reverse=True)
+            if not athlete_seasons: athlete_seasons = [CURRENT_SEASON]
+            
+            sel_season = st.selectbox("View Season:", athlete_seasons, key="athlete_dash_season")
+            st.markdown("---")
+            
+            user_races = u_races[(u_races["Active"].isin(["TRUE", "1", "1.0"])) & (u_races["Season"] == sel_season)].copy()
+            user_workouts = u_works[u_works["Season"] == sel_season].copy()
             
             col_m1, col_m2, col_m3 = st.columns(3)
-            col_m1.metric(label="Races Completed", value=len(user_races))
-            col_m2.metric(label="Workouts Logged", value=len(user_workouts[user_workouts["Status"] == "Present"]))
+            col_m1.metric(label=f"Races Completed ({sel_season})", value=len(user_races))
+            col_m2.metric(label=f"Workouts Logged ({sel_season})", value=len(user_workouts[user_workouts["Status"] == "Present"]))
             
             fastest_5k = "N/A"
             if not user_races.empty:
@@ -1012,12 +1079,12 @@ def home_page():
                     fastest_sec = five_k_races["Total_Time"].apply(time_to_seconds).replace(0, float('inf')).min()
                     if fastest_sec != float('inf'): fastest_5k = seconds_to_time(fastest_sec)
                     
-            col_m3.metric(label="5K PR (This Season)", value=fastest_5k)
+            col_m3.metric(label=f"5K PR ({sel_season})", value=fastest_5k)
             st.markdown("<br>", unsafe_allow_html=True)
             
             sub_races, sub_workouts = st.tabs(["Race Results", "Workouts"])
-            with sub_races: display_athlete_races(st.session_state["username"])
-            with sub_workouts: display_athlete_workouts(st.session_state["username"])
+            with sub_races: display_athlete_races(st.session_state["username"], sel_season)
+            with sub_workouts: display_athlete_workouts(st.session_state["username"], sel_season)
             
         with tab_rankings:
             show_rankings_tab()

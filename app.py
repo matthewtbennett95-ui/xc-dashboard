@@ -123,6 +123,27 @@ st.markdown(f"""
             background-color: {current_theme['app_bg']} !important;
         }}
         
+        /* ==========================================
+           PRINT CSS (Hides UI Elements for clean printing)
+           ========================================== */
+        @media print {{
+            .stApp {{ background-color: white !important; }}
+            section[data-testid="stSidebar"], header[data-testid="stHeader"], 
+            div[data-testid="stToolbar"], div[data-testid="stDecoration"] {{ display: none !important; }}
+            
+            .stRadio, .stSelectbox, .stButton, .stMultiSelect, .stNumberInput, .stTextInput {{ display: none !important; }}
+            div[data-testid="stForm"] {{ display: none !important; }}
+            div[data-testid="stTabs"] > div:first-child {{ display: none !important; }}
+            
+            .stMainBlockContainer {{ max-width: 100% !important; padding: 0 !important; }}
+            h1, h2, h3, h4, h5, h6, p, span, div, td, th {{ color: black !important; }}
+            
+            .print-table {{ width: 100%; border-collapse: collapse; margin-bottom: 2rem; page-break-inside: avoid; font-size: 14px; }}
+            .print-table th, .print-table td {{ border: 1px solid black !important; padding: 8px; text-align: left; }}
+            .print-table th {{ background-color: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-weight: bold; }}
+            .color-bar {{ display: none !important; }}
+        }}
+        
         {dark_mode_css}
     </style>
     <div class="color-bar"></div>
@@ -184,7 +205,6 @@ def get_grade_level(grad_year_str):
     elif grade > 12: return "Alumni"
     else: return "Unknown"
 
-# NEW: Dynamically assign a year to a date. (e.g. Any date from July 2025 to June 2026 = "2025" Season)
 def calculate_season(date_val):
     try:
         d = pd.to_datetime(date_val)
@@ -275,7 +295,6 @@ for col in expected_workout_cols:
     if col not in workouts_data.columns: 
         workouts_data[col] = ""
 
-# NEW: Automatically Tag Every Row with a Season
 races_data["Season"] = races_data["Date"].apply(calculate_season)
 workouts_data["Season"] = workouts_data["Date"].apply(calculate_season)
 
@@ -306,7 +325,6 @@ def show_rankings_tab():
     
     r_col1, r_col2, r_col3 = st.columns(3)
     
-    # NEW: Season selector for rankings!
     available_seasons = sorted(races_data["Season"].unique().tolist(), reverse=True)
     if not available_seasons: available_seasons = [CURRENT_SEASON]
     with r_col1: r_season = st.selectbox("Season", available_seasons, key="rankings_season")
@@ -319,8 +337,6 @@ def show_rankings_tab():
     
     merged = merged[merged["Active_Clean"].isin(["TRUE", "1", "1.0"])]
     merged = merged[merged["Active"].isin(["TRUE", "1", "1.0"])]
-    
-    # NEW: Filter merged dataframe by the dropdown season
     merged = merged[(merged["Gender"].str.title() == target_gender) & (merged["Distance"].str.upper() == r_dist.upper()) & (merged["Season"] == r_season)]
     
     if merged.empty:
@@ -406,7 +422,6 @@ def plot_athlete_progress(user_races):
     st.markdown("---")
 
 def display_athlete_races(target_username, target_season):
-    # Filter for active races AND specific season
     user_races = races_data[(races_data["Username"] == target_username) & (races_data["Active"].isin(["TRUE", "1", "1.0"])) & (races_data["Season"] == target_season)].copy()
     if not user_races.empty:
         user_races["Time_Sec"] = user_races["Total_Time"].apply(time_to_seconds)
@@ -522,7 +537,7 @@ def home_page():
     st.markdown("---")
     
     if user_role.upper() == "COACH":
-        tab1, tab2, tab3, tab4 = st.tabs(["Athlete Lookup", "Roster Management", "Data Entry", "Team Rankings"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["Athlete Lookup", "Roster Management", "Data Entry", "Team Rankings", "Printables"])
         
         with tab1:
             st.subheader("Athlete Lookup")
@@ -540,7 +555,6 @@ def home_page():
                 if selected_username: 
                     st.markdown("---")
                     
-                    # Dynamically find the seasons this specific athlete has participated in
                     u_races = races_data[races_data["Username"] == selected_username]
                     u_works = workouts_data[workouts_data["Username"] == selected_username]
                     athlete_seasons = sorted(list(set(u_races["Season"].tolist() + u_works["Season"].tolist())), reverse=True)
@@ -719,7 +733,6 @@ def home_page():
                 st.subheader("Manage Meet Multipliers & Weights")
                 st.info(f"Currently managing weights for the **{CURRENT_SEASON}** season.")
                 
-                # ONLY Pull meets from the Current Season
                 active_races = races_data[(races_data["Active"].isin(["TRUE", "1", "1.0"])) & (races_data["Season"] == CURRENT_SEASON)]
                 unique_meets = active_races[["Meet_Name", "Date", "Weight"]].drop_duplicates(subset=["Meet_Name", "Date"])
                 
@@ -1045,6 +1058,105 @@ def home_page():
 
         with tab4:
             show_rankings_tab()
+            
+        with tab5:
+            st.subheader("🖨️ Generate Print Sheets")
+            print_action = st.radio("Select Sheet to Build:", ["Attendance Sheet", "Meet Split Sheet"], horizontal=True)
+            st.markdown("---")
+            
+            if print_action == "Attendance Sheet":
+                col_a1, col_a2, col_a3 = st.columns(3)
+                with col_a1: p_gender = st.selectbox("Team", ["Boys", "Girls"])
+                with col_a2: p_type = st.selectbox("Season Type", ["Summer", "School Year"])
+                with col_a3: p_week = st.text_input("Week Of (e.g., Aug 12 - 16)")
+                
+                if st.button("Generate Attendance Sheet", type="primary"):
+                    active_athletes = roster_data[(roster_data["Role"].str.upper() == "ATHLETE") & (roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"]))].copy()
+                    target_gender = "Male" if p_gender == "Boys" else "Female"
+                    active_athletes = active_athletes[active_athletes["Gender"].str.title() == target_gender].sort_values(by="Last_Name")
+                    
+                    if p_type == "Summer":
+                        cols = ["Mon In", "Mon Out", "Tues In", "Tues Out", "Thur In", "Thur Out"]
+                    else:
+                        cols = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+                        
+                    html = f"<h2>{p_gender.upper()} {p_type.upper()} ATTENDANCE</h2>"
+                    if p_week: html += f"<h3>WEEK OF: {p_week}</h3>"
+                    
+                    html += "<table class='print-table'><tr><th>Runner</th>"
+                    for c in cols: html += f"<th>{c}</th>"
+                    html += "</tr>"
+                    
+                    for _, row in active_athletes.iterrows():
+                        html += f"<tr><td>{row['Last_Name']}, {row['First_Name']}</td>"
+                        for _ in cols: html += "<td></td>"
+                        html += "</tr>"
+                    html += "</table>"
+                    
+                    st.info("Press **Ctrl+P** (or **Cmd+P** on Mac) to print. All menus and buttons will automatically hide on the printed page!")
+                    st.markdown(html, unsafe_allow_html=True)
+
+            elif print_action == "Meet Split Sheet":
+                st.markdown("Build your race entries here to instantly generate a printable clipboard sheet.")
+                
+                all_meets = races_data["Meet_Name"].dropna().unique().tolist()
+                p_meet = st.selectbox("Select Meet", ["-- Type a New Meet Name --"] + all_meets)
+                meet_name = st.text_input("New Meet Name") if p_meet == "-- Type a New Meet Name --" else p_meet
+                
+                st.markdown("---")
+                race_count = st.number_input("How many separate races do you need on this sheet?", min_value=1, max_value=10, value=2)
+                
+                active_athletes = roster_data[(roster_data["Role"].str.upper() == "ATHLETE") & (roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"]))].copy()
+                athlete_opts = {row["Username"]: f"{row['First_Name']} {row['Last_Name']}" for _, row in active_athletes.sort_values(by=["Gender", "Last_Name"]).iterrows()}
+                
+                races_to_print = []
+                for i in range(race_count):
+                    st.markdown(f"**Race Block {i+1}**")
+                    r_col1, r_col2 = st.columns([1, 2])
+                    with r_col1:
+                        r_name = st.text_input(f"Race Title (e.g. Boys Champ - 7:55 AM)", key=f"rname_{i}")
+                    with r_col2:
+                        r_runners = st.multiselect(f"Select Runners", options=list(athlete_opts.keys()), format_func=lambda x: athlete_opts[x], key=f"rrunners_{i}")
+                    if r_name and r_runners:
+                        races_to_print.append({"name": r_name, "runners": r_runners})
+                    st.markdown("<br>", unsafe_allow_html=True)
+                        
+                if st.button("Generate Meet Sheet", type="primary"):
+                    if not races_to_print:
+                        st.warning("Please configure at least one race with runners before generating.")
+                    else:
+                        st.info("Press **Ctrl+P** (or **Cmd+P** on Mac) to print. All menus and buttons will automatically hide on the printed page!")
+                        html = f"<h2>{meet_name} - Split Sheet</h2>"
+                        
+                        for race in races_to_print:
+                            html += f"<h3>{race['name']}</h3>"
+                            html += "<table class='print-table'>"
+                            html += "<tr><th>Athlete</th><th>Prior Best at Meet</th><th>1 Mile</th><th>2 Mile</th><th>Finish</th></tr>"
+                            
+                            for uname in race['runners']:
+                                a_name = athlete_opts[uname]
+                                
+                                prior_time = ""
+                                if meet_name:
+                                    prior_races = races_data[(races_data["Username"] == uname) & (races_data["Meet_Name"] == meet_name)].copy()
+                                    if not prior_races.empty:
+                                        prior_races["Time_Sec"] = prior_races["Total_Time"].apply(time_to_seconds)
+                                        prior_races = prior_races[prior_races["Time_Sec"] > 0]
+                                        if not prior_races.empty:
+                                            prior_time = seconds_to_time(prior_races["Time_Sec"].min())
+                                
+                                if not prior_time:
+                                    all_5k = races_data[(races_data["Username"] == uname) & (races_data["Distance"].str.upper() == "5K")].copy()
+                                    if not all_5k.empty:
+                                        all_5k["Time_Sec"] = all_5k["Total_Time"].apply(time_to_seconds)
+                                        all_5k = all_5k[all_5k["Time_Sec"] > 0]
+                                        if not all_5k.empty:
+                                            prior_time = f"{seconds_to_time(all_5k['Time_Sec'].min())} (PR)"
+                                
+                                html += f"<tr><td>{a_name}</td><td>{prior_time}</td><td></td><td></td><td></td></tr>"
+                            html += "</table><br>"
+                            
+                        st.markdown(html, unsafe_allow_html=True)
 
     # ----------------------------------
     # ATHLETE VIEW

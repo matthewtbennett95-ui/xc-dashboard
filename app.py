@@ -9,7 +9,7 @@ from streamlit_gsheets import GSheetsConnection
 # ==========================================
 st.set_page_config(page_title="MCXC Team Dashboard", layout="centered")
 
-# Define expanded visual themes
+# Define expanded visual themes (Softened for traditional dark mode)
 THEMES = {
     "MCXC Classic (Light)": {
         "bar": "linear-gradient(to right, #8B2331, #0C223F, #C7B683)", 
@@ -19,15 +19,15 @@ THEMES = {
     },
     "Midnight Runner (Dark)": {
         "bar": "linear-gradient(to right, #FF4B4B, #FF904F)", 
-        "metric_bg": "rgba(255, 75, 75, 0.1)", "metric_border": "rgba(255, 75, 75, 0.3)",
-        "line": "#FF4B4B", "app_bg": "#0E1117", "text": "#FAFAFA", 
-        "sidebar_bg": "#262730", "plotly_template": "plotly_dark"
+        "metric_bg": "rgba(255, 75, 75, 0.05)", "metric_border": "rgba(255, 75, 75, 0.2)",
+        "line": "#FF4B4B", "app_bg": "#18181B", "text": "#D4D4D8", 
+        "sidebar_bg": "#27272A", "plotly_template": "plotly_dark"
     },
     "Neon Track (Dark)": {
         "bar": "linear-gradient(to right, #FF007F, #7928CA, #00C9FF)", 
-        "metric_bg": "rgba(121, 40, 202, 0.15)", "metric_border": "rgba(255, 0, 127, 0.4)",
-        "line": "#FF007F", "app_bg": "#121212", "text": "#E0E0E0", 
-        "sidebar_bg": "#1E1E1E", "plotly_template": "plotly_dark"
+        "metric_bg": "rgba(121, 40, 202, 0.08)", "metric_border": "rgba(121, 40, 202, 0.25)",
+        "line": "#FF007F", "app_bg": "#121212", "text": "#D1D5DB", 
+        "sidebar_bg": "#1F2937", "plotly_template": "plotly_dark"
     },
     "Ocean Pace (Light)": {
         "bar": "linear-gradient(to right, #00C9FF, #92FE9D)", 

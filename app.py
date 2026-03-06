@@ -9,33 +9,42 @@ from streamlit_gsheets import GSheetsConnection
 # ==========================================
 st.set_page_config(page_title="MCXC Team Dashboard", layout="centered")
 
-# Define expanded visual themes (More aggressive Dark Modes)
+# Your official school colors
+MCXC_CRIMSON = "#8B2331"
+MCXC_NAVY = "#0C223F"
+MCXC_GOLD = "#C7B683"
+
+# Define expanded visual themes (Now with dynamic Header colors!)
 THEMES = {
     "MCXC Classic (Light)": {
-        "bar": "linear-gradient(to right, #8B2331, #0C223F, #C7B683)", 
+        "bar": f"linear-gradient(to right, {MCXC_CRIMSON}, {MCXC_NAVY}, {MCXC_GOLD})", 
         "metric_bg": "rgba(139, 35, 49, 0.05)", "metric_border": "rgba(139, 35, 49, 0.2)",
-        "line": "#8B2331", "app_bg": "#FFFFFF", "text": "#31333F", 
+        "line": MCXC_CRIMSON, "app_bg": "#FFFFFF", "text": "#31333F", 
+        "header": MCXC_NAVY, # Navy headers in light mode
         "sidebar_bg": "#F0F2F6", "plotly_template": "plotly_white",
         "is_dark": False
+    },
+    "MCXC Elite (Dark)": {  # NEW: True School-Color Dark Mode!
+        "bar": f"linear-gradient(to right, {MCXC_CRIMSON}, {MCXC_GOLD}, {MCXC_CRIMSON})", 
+        "metric_bg": "rgba(199, 182, 131, 0.1)", "metric_border": "rgba(199, 182, 131, 0.3)",
+        "line": MCXC_GOLD, "app_bg": MCXC_NAVY, "text": "#F0F2F6", 
+        "header": MCXC_GOLD, # Gold headers popping off the Navy background!
+        "sidebar_bg": "#08182D", "plotly_template": "plotly_dark",
+        "is_dark": True
     },
     "Midnight Runner (Dark)": {
         "bar": "linear-gradient(to right, #FF4B4B, #FF904F)", 
         "metric_bg": "rgba(255, 75, 75, 0.1)", "metric_border": "rgba(255, 75, 75, 0.3)",
         "line": "#FF4B4B", "app_bg": "#0E1117", "text": "#FFFFFF", 
+        "header": MCXC_GOLD, # Added your Gold here too!
         "sidebar_bg": "#1A1C24", "plotly_template": "plotly_dark",
-        "is_dark": True
-    },
-    "Neon Track (Dark)": {
-        "bar": "linear-gradient(to right, #FF007F, #7928CA, #00C9FF)", 
-        "metric_bg": "rgba(121, 40, 202, 0.15)", "metric_border": "rgba(255, 0, 127, 0.4)",
-        "line": "#FF007F", "app_bg": "#000000", "text": "#FFFFFF", 
-        "sidebar_bg": "#121212", "plotly_template": "plotly_dark",
         "is_dark": True
     },
     "Ocean Pace (Light)": {
         "bar": "linear-gradient(to right, #00C9FF, #92FE9D)", 
         "metric_bg": "rgba(0, 201, 255, 0.05)", "metric_border": "rgba(0, 201, 255, 0.3)",
         "line": "#00C9FF", "app_bg": "#F4F8FB", "text": "#1A2A3A", 
+        "header": "#00C9FF",
         "sidebar_bg": "#E5F0F9", "plotly_template": "plotly_white",
         "is_dark": False
     }
@@ -53,14 +62,14 @@ if current_theme["is_dark"]:
     dark_mode_css = f"""
         /* Force Input Boxes, Dropdowns, and number inputs to be dark */
         [data-baseweb="input"] > div, [data-baseweb="select"] > div, [data-baseweb="base-input"] {{
-            background-color: #262730 !important;
+            background-color: rgba(0,0,0,0.4) !important;
             color: #FFFFFF !important;
-            border-color: #444444 !important;
+            border-color: rgba(255,255,255,0.2) !important;
         }}
         /* Force Form containers to be dark */
         [data-testid="stForm"] {{
             background-color: {current_theme['sidebar_bg']} !important;
-            border-color: #333333 !important;
+            border-color: rgba(255,255,255,0.1) !important;
         }}
         /* Ensure text typed inside inputs stays white */
         input, textarea, select {{
@@ -103,9 +112,15 @@ st.markdown(f"""
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }}
         
-        /* Broadly override primary text colors to catch ALL grey text */
-        .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, 
-        .stMarkdown li, .stMarkdown span, div[data-testid="stCaptionContainer"],
+        /* OVERRIDE HEADERS TO BE GOLD/THEME COLOR */
+        h1, h2, h3, h4, h5, h6,
+        .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, 
+        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {{
+            color: {current_theme['header']} !important;
+        }}
+
+        /* Broadly override primary text colors for normal paragraphs/labels */
+        .stMarkdown p, .stMarkdown li, .stMarkdown span, div[data-testid="stCaptionContainer"],
         label, .stMetricValue, div[data-testid="stTabs"] button p {{
             color: {current_theme['text']} !important;
         }}

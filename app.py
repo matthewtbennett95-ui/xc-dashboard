@@ -285,7 +285,7 @@ def show_rankings_tab():
         # Reorder columns chronologically, fill blank cells with a dash, and reset index to show Athlete column
         pivot_df = pivot_df.reindex(columns=ordered_cols).fillna("-").reset_index()
         
-        st.dataframe(pivot_df, hide_index=True, use_container_width=True)True)
+        st.dataframe(pivot_df, hide_index=True, use_container_width=True)
 
 def plot_athlete_progress(user_races):
     # Filter only for 5K races with valid times

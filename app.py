@@ -441,8 +441,8 @@ def login_page():
     st.title("MCXC Team Dashboard")
     st.markdown("Please log in to access your training data.")
     with st.form("login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
+        username = st.text_input("Username", autocomplete="off")
+        password = st.text_input("Password", type="password", autocomplete="new-password")
         if st.form_submit_button("Log In"):
             user_row = roster_data[roster_data["Username"] == username]
             if not user_row.empty:
@@ -459,8 +459,8 @@ def password_reset_page():
     st.title("Welcome to the Team")
     st.markdown("Please create a new, secure password to continue.")
     with st.form("reset_password_form"):
-        new_password = st.text_input("New Password", type="password")
-        confirm_password = st.text_input("Confirm New Password", type="password")
+        new_password = st.text_input("New Password", type="password", autocomplete="new-password")
+        confirm_password = st.text_input("Confirm New Password", type="password", autocomplete="new-password")
         if st.form_submit_button("Update Password"):
             if len(new_password) < 4: st.error("Password must be at least 4 characters long.")
             elif new_password != confirm_password: st.error("Passwords do not match.")
@@ -534,11 +534,11 @@ def home_page():
             elif roster_action == "Add New Member":
                 with st.form("add_member_form"):
                     r1_col1, r1_col2 = st.columns(2)
-                    with r1_col1: new_first = st.text_input("First Name")
-                    with r1_col2: new_last = st.text_input("Last Name")
+                    with r1_col1: new_first = st.text_input("First Name", autocomplete="off")
+                    with r1_col2: new_last = st.text_input("Last Name", autocomplete="off")
                     r2_col1, r2_col2 = st.columns(2)
                     with r2_col1: new_role = st.selectbox("Role", ["Athlete", "Coach"])
-                    with r2_col2: new_grad_year = st.text_input("Grad Year (e.g., 2028)")
+                    with r2_col2: new_grad_year = st.text_input("Grad Year (e.g., 2028)", autocomplete="off")
                     r3_col1, r3_col2 = st.columns(2)
                     with r3_col1: new_gender = st.selectbox("Gender", ["Male", "Female", "N/A"])
                     if st.form_submit_button("Add to Roster"):
@@ -576,13 +576,13 @@ def home_page():
                         target_row = roster_data[roster_data["Username"] == user_to_edit].iloc[0]
                         with st.form("edit_member_form"):
                             e1_col1, e1_col2 = st.columns(2)
-                            with e1_col1: edit_first = st.text_input("First Name", value=target_row["First_Name"])
-                            with e1_col2: edit_last = st.text_input("Last Name", value=target_row["Last_Name"])
+                            with e1_col1: edit_first = st.text_input("First Name", value=target_row["First_Name"], autocomplete="off")
+                            with e1_col2: edit_last = st.text_input("Last Name", value=target_row["Last_Name"], autocomplete="off")
                             e2_col1, e2_col2 = st.columns(2)
                             with e2_col1:
                                 role_index = 0 if str(target_row["Role"]).title() == "Athlete" else 1
                                 edit_role = st.selectbox("Role", ["Athlete", "Coach"], index=role_index)
-                            with e2_col2: edit_grad_year = st.text_input("Grad Year", value=str(target_row.get("Grad_Year", "")))
+                            with e2_col2: edit_grad_year = st.text_input("Grad Year", value=str(target_row.get("Grad_Year", "")), autocomplete="off")
                             e3_col1, e3_col2 = st.columns(2)
                             with e3_col1:
                                 gender_val = str(target_row.get("Gender", "N/A")).title()
@@ -706,7 +706,7 @@ def home_page():
                                 st.session_state.current_meet_date = pd.to_datetime(m_date_val, errors='coerce').date()
                                 st.rerun()
                     with col_m2:
-                        new_meet = st.text_input("New Meet Name")
+                        new_meet = st.text_input("New Meet Name", autocomplete="off")
                         new_date = st.date_input("Meet Date")
                         if st.button("Create New Meet"):
                             if new_meet:
@@ -726,7 +726,7 @@ def home_page():
                                 st.session_state.current_distance = meet_races_df[meet_races_df["Race_Name"] == sel_race]["Distance"].dropna().iloc[0]
                                 st.rerun()
                     with col_r2:
-                        new_race = st.text_input("New Race Category")
+                        new_race = st.text_input("New Race Category", autocomplete="off")
                         new_dist = st.selectbox("Distance", ["5K", "2 Mile", "Other"])
                         if st.button("Create New Race"):
                             if new_race:
@@ -748,9 +748,9 @@ def home_page():
                     with st.form("add_race_result_form", clear_on_submit=True):
                         runner_selected = st.selectbox("Select Runner:", options=list(runner_dict.keys()), format_func=lambda x: runner_dict[x])
                         time_col1, time_col2, time_col3 = st.columns(3)
-                        with time_col1: m1_time = st.text_input("Mile 1 Split")
-                        with time_col2: m2_time = st.text_input("Mile 2 Split") if st.session_state.current_distance == "5K" else ""
-                        with time_col3: total_time = st.text_input("Total Finish Time")
+                        with time_col1: m1_time = st.text_input("Mile 1 Split", autocomplete="off")
+                        with time_col2: m2_time = st.text_input("Mile 2 Split", autocomplete="off") if st.session_state.current_distance == "5K" else ""
+                        with time_col3: total_time = st.text_input("Total Finish Time", autocomplete="off")
                             
                         if st.form_submit_button("Save Result"):
                             if total_time:
@@ -787,12 +787,11 @@ def home_page():
                             else: dist_options = ["Custom/Other"]
                             
                             selected_dist = st.selectbox("Distance/Rep Details", dist_options)
-                            if selected_dist in ["Custom/Other", "Other", "Split"]: w_dist = st.text_input("Specify Distance/Details", placeholder="e.g., 2+1, 8x400m")
+                            if selected_dist in ["Custom/Other", "Other", "Split"]: w_dist = st.text_input("Specify Distance/Details", placeholder="e.g., 2+1, 8x400m", autocomplete="off")
                             else: w_dist = selected_dist
                                 
                             w_reps = st.number_input("Total Max Intervals/Segments Today", min_value=1, max_value=20, value=6)
                         with w_col3:
-                            # REMOVED MANUAL WEATHER INPUT
                             calc_mode = st.radio("Time Entry Mode:", ["Individual Splits", "Continuous Clock (Elapsed)"], index=0)
                             restart_rep = 0
                             if calc_mode == "Continuous Clock (Elapsed)" and selected_dist == "Split":
@@ -835,7 +834,6 @@ def home_page():
                                 new_workout_rows = []
                                 formatted_date = pd.to_datetime(w_date).strftime("%Y-%m-%d")
                                 
-                                # FETCH WEATHER AUTOMATICALLY BEHIND THE SCENES
                                 w_weather = get_weather_for_date(formatted_date)
                                 
                                 for _, row in edited_df.iterrows():
@@ -911,8 +909,7 @@ def home_page():
                                     new_w_type = st.selectbox("Workout Type", type_options, index=t_index)
                                     st.markdown(f"**Current Weather:** {current_weather}")
                                 with h_col2:
-                                    new_w_dist = st.text_input("Distance/Rep Details", value=current_dist)
-                                    # REMOVED MANUAL WEATHER INPUT
+                                    new_w_dist = st.text_input("Distance/Rep Details", value=current_dist, autocomplete="off")
                                 
                                 st.markdown("### Update Athlete Splits")
                                 max_reps = 1
@@ -951,7 +948,6 @@ def home_page():
                                         keep_rows = workouts_data[~((workouts_data["Date"] == old_date) & (workouts_data["Workout_Type"] == old_type))]
                                         formatted_new_date = pd.to_datetime(new_w_date).strftime("%Y-%m-%d")
                                         
-                                        # AUTOMATICALLY RE-FETCH IF DATE CHANGED OR IF IT WAS MISSING
                                         if formatted_new_date != old_date or not current_weather or "Can't" in current_weather:
                                             final_weather = get_weather_for_date(formatted_new_date)
                                         else:
@@ -1021,4 +1017,5 @@ def home_page():
 
 if not st.session_state["logged_in"]: login_page()
 elif st.session_state["first_login"]: password_reset_page()
+else: home_page()
 else: home_page()

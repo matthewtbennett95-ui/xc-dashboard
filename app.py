@@ -227,34 +227,44 @@ def get_weather_for_date(date_str):
     except Exception as e:
         return "Can't access weather data"
 
-# Wraps pure HTML for perfect printable sheets
-def wrap_html_for_print(title, body_content):
+# HIGHLY OPTIMIZED HTML WRAPPER FOR PDF PRINTING
+def wrap_html_for_print(title, body_content, is_attendance=False):
+    page_settings = "size: portrait;" if is_attendance else "size: auto;"
+    
     return f"""<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 <title>{title}</title>
 <style>
-    body {{ font-family: Arial, sans-serif; padding: 20px; }}
-    table {{ width: 100%; border-collapse: collapse; margin-bottom: 30px; page-break-inside: avoid; }}
-    th, td {{ border: 1px solid #000; padding: 8px; text-align: left; }}
-    th {{ background-color: #f2f2f2; -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
-    h2, h3 {{ margin-bottom: 10px; }}
-    .print-btn {{ padding: 10px 20px; font-size: 16px; cursor: pointer; background: #8B2331; color: white; border: none; border-radius: 4px; font-weight: bold; }}
+    body {{ font-family: Arial, sans-serif; padding: 10px; margin: 0; color: #000; }}
+    @page {{ margin: 0.5in; {page_settings} }}
+    table {{ width: 100%; border-collapse: collapse; margin-bottom: 15px; page-break-inside: auto; }}
+    tr {{ page-break-inside: avoid; page-break-after: auto; }}
+    /* Drastically reduced padding and font size for maximum density */
+    th, td {{ border: 1px solid #000; padding: 3px 5px; text-align: left; font-size: 11px; }}
+    th {{ background-color: #f2f2f2; font-weight: bold; font-size: 12px; }}
+    h2 {{ margin: 5px 0 10px 0; font-size: 18px; text-align: center; font-weight: bold; }}
+    h3 {{ margin: 5px 0; font-size: 14px; background-color: #e2e8f0; padding: 4px; border: 1px solid #000; border-bottom: none; }}
+    
+    .print-btn {{ padding: 12px 24px; font-size: 16px; cursor: pointer; background: #8B2331; color: white; border: none; border-radius: 4px; font-weight: bold; margin-bottom: 10px; }}
+    
     @media print {{
         .no-print {{ display: none !important; }}
         body {{ padding: 0; }}
+        * {{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
     }}
 </style>
 </head>
 <body>
-    <div class="no-print" style="margin-bottom: 20px;">
-        <button class="print-btn" onclick="window.print()">🖨️ Click Here to Print Sheet</button>
-        <p style="color: gray; font-size: 14px;">(This button and the gray background will not appear on the paper)</p>
+    <div class="no-print" style="text-align: center; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+        <button class="print-btn" onclick="window.print()">🖨️ Click Here to Print / Save as PDF</button>
+        <p style="color: #666; font-size: 13px; margin: 0;"><strong>Pro Tip:</strong> For large rosters, set your printer "Scale" to <i>Fit to Page</i> or <i>90%</i> in the print settings.</p>
     </div>
     {body_content}
 </body>
 </html>"""
+
 
 # ==========================================
 # --- 3. DATABASE CONNECTION & CLEANUP ---
@@ -1107,8 +1117,8 @@ def home_page():
                         html += "</tr>"
                     html += "</table>"
                     
-                    final_html = wrap_html_for_print(f"{p_gender} Attendance", html)
-                    st.success("Your printable sheet is ready!")
+                    final_html = wrap_html_for_print(f"{p_gender} Attendance", html, is_attendance=True)
+                    st.success("Your printable sheet is ready! Download the HTML file and print it.")
                     st.download_button(label="📥 Download Printable HTML Sheet", data=final_html, file_name=f"{p_gender}_Attendance.html", mime="text/html")
 
             elif print_action == "Create New Meet / Print Sheet":
@@ -1123,7 +1133,6 @@ def home_page():
                 
                 active_athletes = roster_data[(roster_data["Role"].str.upper() == "ATHLETE") & (roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"]))].copy()
                 
-                # Pre-calculate assigned runners to prevent double dipping across races
                 assigned_runners = set()
                 for j in range(race_count):
                     assigned_runners.update(st.session_state.get(f"rrunners_{j}", []))
@@ -1139,14 +1148,12 @@ def home_page():
                     with r_col3:
                         r_filter = st.selectbox("Filter Runners", ["All", "Boys", "Girls"], key=f"rfilt_{i}")
                         
-                    # Filter by gender for this specific race block
                     available_athletes = active_athletes.copy()
                     if r_filter == "Boys":
                         available_athletes = available_athletes[available_athletes["Gender"].str.title() == "Male"]
                     elif r_filter == "Girls":
                         available_athletes = available_athletes[available_athletes["Gender"].str.title() == "Female"]
                         
-                    # Remove athletes already assigned to OTHER races in this meet
                     other_race_runners = assigned_runners - set(st.session_state.get(f"rrunners_{i}", []))
                     available_athletes = available_athletes[~available_athletes["Username"].isin(other_race_runners)]
                     
@@ -1181,14 +1188,12 @@ def home_page():
                             with st.spinner("Saving to database..."): conn.update(worksheet="Races", data=updated_races)
                             st.cache_data.clear()
                             
-                        # Generate HTML for the download
                         html = f"<h2>{p_meet} - Split Sheet</h2>"
                         for race in races_to_print:
                             html += f"<h3>{race['name']} ({race['dist']})</h3>"
                             html += "<table>"
                             html += "<tr><th>Athlete</th><th>Prior Best at Meet</th><th>1 Mile</th><th>2 Mile</th><th>Finish</th></tr>"
                             
-                            # Used to fetch names without caring about gender filters
                             all_athlete_opts = {row["Username"]: f"{row['First_Name']} {row['Last_Name']}" for _, row in active_athletes.iterrows()}
                             
                             for uname in race['runners']:

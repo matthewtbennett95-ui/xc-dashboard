@@ -9,31 +9,35 @@ from streamlit_gsheets import GSheetsConnection
 # ==========================================
 st.set_page_config(page_title="MCXC Team Dashboard", layout="centered")
 
-# Define expanded visual themes (Softened for traditional dark mode)
+# Define expanded visual themes (More aggressive Dark Modes)
 THEMES = {
     "MCXC Classic (Light)": {
         "bar": "linear-gradient(to right, #8B2331, #0C223F, #C7B683)", 
         "metric_bg": "rgba(139, 35, 49, 0.05)", "metric_border": "rgba(139, 35, 49, 0.2)",
         "line": "#8B2331", "app_bg": "#FFFFFF", "text": "#31333F", 
-        "sidebar_bg": "#F0F2F6", "plotly_template": "plotly_white"
+        "sidebar_bg": "#F0F2F6", "plotly_template": "plotly_white",
+        "is_dark": False
     },
     "Midnight Runner (Dark)": {
         "bar": "linear-gradient(to right, #FF4B4B, #FF904F)", 
-        "metric_bg": "rgba(255, 75, 75, 0.05)", "metric_border": "rgba(255, 75, 75, 0.2)",
-        "line": "#FF4B4B", "app_bg": "#18181B", "text": "#D4D4D8", 
-        "sidebar_bg": "#27272A", "plotly_template": "plotly_dark"
+        "metric_bg": "rgba(255, 75, 75, 0.1)", "metric_border": "rgba(255, 75, 75, 0.3)",
+        "line": "#FF4B4B", "app_bg": "#0E1117", "text": "#FFFFFF", 
+        "sidebar_bg": "#1A1C24", "plotly_template": "plotly_dark",
+        "is_dark": True
     },
     "Neon Track (Dark)": {
         "bar": "linear-gradient(to right, #FF007F, #7928CA, #00C9FF)", 
-        "metric_bg": "rgba(121, 40, 202, 0.08)", "metric_border": "rgba(121, 40, 202, 0.25)",
-        "line": "#FF007F", "app_bg": "#121212", "text": "#D1D5DB", 
-        "sidebar_bg": "#1F2937", "plotly_template": "plotly_dark"
+        "metric_bg": "rgba(121, 40, 202, 0.15)", "metric_border": "rgba(255, 0, 127, 0.4)",
+        "line": "#FF007F", "app_bg": "#000000", "text": "#FFFFFF", 
+        "sidebar_bg": "#121212", "plotly_template": "plotly_dark",
+        "is_dark": True
     },
     "Ocean Pace (Light)": {
         "bar": "linear-gradient(to right, #00C9FF, #92FE9D)", 
         "metric_bg": "rgba(0, 201, 255, 0.05)", "metric_border": "rgba(0, 201, 255, 0.3)",
         "line": "#00C9FF", "app_bg": "#F4F8FB", "text": "#1A2A3A", 
-        "sidebar_bg": "#E5F0F9", "plotly_template": "plotly_white"
+        "sidebar_bg": "#E5F0F9", "plotly_template": "plotly_white",
+        "is_dark": False
     }
 }
 
@@ -43,20 +47,45 @@ if "theme" not in st.session_state:
 
 current_theme = THEMES[st.session_state["theme"]]
 
-# Inject refined CSS to override backgrounds safely
+# Generate aggressive dark mode CSS overrides if a dark theme is selected
+dark_mode_css = ""
+if current_theme["is_dark"]:
+    dark_mode_css = f"""
+        /* Force Input Boxes, Dropdowns, and number inputs to be dark */
+        [data-baseweb="input"] > div, [data-baseweb="select"] > div, [data-baseweb="base-input"] {{
+            background-color: #262730 !important;
+            color: #FFFFFF !important;
+            border-color: #444444 !important;
+        }}
+        /* Force Form containers to be dark */
+        [data-testid="stForm"] {{
+            background-color: {current_theme['sidebar_bg']} !important;
+            border-color: #333333 !important;
+        }}
+        /* Ensure text typed inside inputs stays white */
+        input, textarea, select {{
+            color: #FFFFFF !important;
+        }}
+        /* Invert Dataframes/Data Editors to create a synthetic dark mode grid */
+        [data-testid="stDataFrame"], [data-testid="stDataEditor"] {{
+            filter: invert(0.92) hue-rotate(180deg);
+        }}
+    """
+
+# Inject dynamic CSS based on the selected theme
 st.markdown(f"""
     <style>
         /* Main App Background */
         .stApp {{
-            background-color: {current_theme['app_bg']};
+            background-color: {current_theme['app_bg']} !important;
         }}
         /* Sidebar Background */
         [data-testid="stSidebar"] {{
-            background-color: {current_theme['sidebar_bg']};
+            background-color: {current_theme['sidebar_bg']} !important;
         }}
         /* Force Header to be transparent so background shows through */
         [data-testid="stHeader"] {{
-            background-color: transparent;
+            background-color: transparent !important;
         }}
         /* Top Gradient Bar */
         .color-bar {{
@@ -67,16 +96,18 @@ st.markdown(f"""
         }}
         /* Metric Containers */
         div[data-testid="metric-container"] {{
-            background-color: {current_theme['metric_bg']};
-            border: 1px solid {current_theme['metric_border']};
+            background-color: {current_theme['metric_bg']} !important;
+            border: 1px solid {current_theme['metric_border']} !important;
             padding: 10px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }}
-        /* Safely update main text colors, but EXCLUDE standard Streamlit widgets like buttons */
-        .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, label {{
+        /* Override primary text colors */
+        .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, label, .stMetricValue {{
             color: {current_theme['text']} !important;
         }}
+        
+        {dark_mode_css}
     </style>
     <div class="color-bar"></div>
 """, unsafe_allow_html=True)

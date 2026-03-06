@@ -527,7 +527,9 @@ def display_athlete_workouts(target_username, target_season):
             
     user_workouts["Date_Formatted"] = user_workouts["Date_Obj"].dt.strftime('%m/%d/%Y').fillna("Unknown")
     user_workouts["Combo"] = user_workouts["Workout_Type"] + " (" + user_workouts["Rep_Distance"] + ")"
-    present_workouts = user_workouts[user_workouts["Status"] == "Present"]
+    
+    # THE FIX: This variable is now correctly named present_w
+    present_w = user_workouts[user_workouts["Status"] == "Present"]
     
     tab_log, tab_spread, tab_trend = st.tabs(["📋 Workout Log", "🎯 Specific Session Variance", "📈 Category Trends"])
     

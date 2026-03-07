@@ -265,9 +265,9 @@ def wrap_html_for_print(title, body_content, is_attendance=False):
         background-color: #ffffff;
     }}
     
-    @page {{ margin: 0.5in; {page_settings} }}
+    /* Setting margin to 0 specifically strips out the browser's default Date and URL headers! */
+    @page {{ margin: 0; {page_settings} }}
     
-    /* Clean, Modern Typography */
     h2 {{ 
         margin: 0 0 10px 0; 
         font-size: 22px; 
@@ -289,18 +289,15 @@ def wrap_html_for_print(title, body_content, is_attendance=False):
         color: var(--text-main);
     }}
     
-    /* Table Styling inspired by the modern aesthetic */
     table {{ 
         width: 100%; 
         border-collapse: collapse; 
         margin-bottom: 25px; 
         page-break-inside: auto; 
+        border: 1px solid var(--border-color); /* Added this to close off the bottom of the table */
     }}
     
-    tr {{ 
-        page-break-inside: avoid; 
-        page-break-after: auto; 
-    }}
+    tr {{ page-break-inside: avoid; page-break-after: auto; }}
     
     th, td {{ 
         padding: 10px 12px; 
@@ -318,41 +315,24 @@ def wrap_html_for_print(title, body_content, is_attendance=False):
         background: #f8fafc;
     }}
     
-    /* Modern Print Button Styling */
     .print-btn {{ 
-        background: var(--mcxc-crimson); 
-        color: #ffffff; 
-        border: none; 
-        padding: 12px 24px; 
-        border-radius: 6px; 
-        font-size: 14px; 
-        font-weight: 600; 
-        cursor: pointer; 
-        transition: all 0.2s; 
-        text-transform: uppercase; 
-        letter-spacing: 0.5px; 
+        background: var(--mcxc-crimson); color: #ffffff; border: none; 
+        padding: 12px 24px; border-radius: 6px; font-size: 14px; 
+        font-weight: 600; cursor: pointer; transition: all 0.2s; 
+        text-transform: uppercase; letter-spacing: 0.5px; 
         box-shadow: 0 4px 6px -1px rgba(139, 35, 49, 0.3);
         margin-bottom: 10px;
     }}
-    
-    .print-btn:hover {{ 
-        filter: brightness(1.1); 
-        transform: translateY(-1px); 
-    }}
+    .print-btn:hover {{ filter: brightness(1.1); transform: translateY(-1px); }}
     
     .no-print-container {{
-        text-align: center; 
-        margin-bottom: 30px; 
-        padding: 20px; 
-        background: #f0f4f8; 
-        border-radius: 12px;
-        border: 1px solid var(--border-color);
+        text-align: center; margin-bottom: 30px; padding: 20px; 
+        background: #f0f4f8; border-radius: 12px; border: 1px solid var(--border-color);
     }}
     
-    /* Print-specific overrides to ensure colors show up */
     @media print {{ 
         .no-print {{ display: none !important; }} 
-        body {{ padding: 0; }} 
+        body {{ padding: 0.5in; }} /* Restores the padding since we stripped the @page margin */
         * {{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }} 
     }}
 </style>
@@ -360,9 +340,11 @@ def wrap_html_for_print(title, body_content, is_attendance=False):
     <div class="no-print no-print-container">
         <button class="print-btn" onclick="window.print()">🖨️ Click Here to Print / Save as PDF</button>
         <p style="color: var(--text-muted); font-size: 13px; margin: 10px 0 0 0;"><strong>Pro Tip:</strong> For large rosters, set your printer "Scale" to <i>Fit to Page</i>.</p>
+        <p style="color: var(--text-muted); font-size: 13px; margin: 5px 0 0 0;"><i>If you still see dates/URLs on the print preview, uncheck "Headers and Footers" in your print dialog box!</i></p>
     </div>
     {body_content}
 </body></html>"""
+    
 # ==========================================
 # --- 3. DATABASE CONNECTION & CLEANUP ---
 # ==========================================
@@ -1632,10 +1614,12 @@ def home_page():
                     else:
                         columns_data = [("Mon In", True), ("Mon Out", True), ("Tues In", False), ("Tues Out", False), ("Wed In", True), ("Wed Out", True), ("Thurs In", False), ("Thurs Out", False), ("Fri In", True), ("Fri Out", True)]
                         
+                    # Building the HTML table
                     html = f"<h2>{p_gender.upper()} {p_type.upper()} ATTENDANCE</h2>"
                     if p_week: html += f"<h3>WEEK OF: {p_week}</h3>"
                     
-                    html += "<table><tr><th>Runner</th>"
+                    # Added table-layout: fixed and a specific width for the Runner column!
+                    html += "<table style='table-layout: fixed;'><tr><th style='width: 25%;'>Runner</th>"
                     for c_text, is_shaded in columns_data:
                         bg_color = "#e2e8f0" if is_shaded else "#ffffff"
                         html += f"<th style='background-color: {bg_color} !important;'>{c_text}</th>"

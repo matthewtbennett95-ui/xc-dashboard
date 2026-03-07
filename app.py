@@ -660,7 +660,7 @@ def plot_athlete_progress(user_races):
     fig.update_yaxes(title="Finish Time (Minutes)")
     fig.update_xaxes(title="Race Date")
     fig.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"], margin=dict(t=50, b=20, l=20, r=20))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, theme=None)
     st.markdown("---")
 
 def display_athlete_races(username, season):
@@ -766,7 +766,7 @@ def display_athlete_workouts(target_username, target_season):
                 fig.update_traces(marker=dict(size=14, color=THEMES[st.session_state["theme"]]["line"], line=dict(width=2, color='DarkSlateGrey')))
                 fig.update_yaxes(title="Split Time")
                 fig.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"])
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, theme=None)
             else:
                 st.info("This workout does not have enough split data to analyze variance.")
 
@@ -801,7 +801,7 @@ def display_athlete_workouts(target_username, target_season):
                 fig2.update_traces(line_color=THEMES[st.session_state["theme"]]["line"], line_width=3, marker_size=10)
                 fig2.update_yaxes(title="Average Pace")
                 fig2.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"])
-                st.plotly_chart(fig2, use_container_width=True)
+                st.plotly_chart(fig2, use_container_width=True, theme=None)
             else:
                 st.info("You need to complete this specific workout at least twice to generate a trend line!")
 

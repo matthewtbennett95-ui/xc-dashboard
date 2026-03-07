@@ -823,26 +823,54 @@ def home_page():
         
         with tab1:
             st.subheader("Athlete Lookup")
-            active_athletes = roster_data[(roster_data["Role"].str.upper() == "ATHLETE") & (roster_data["Active_Clean"].isin(["TRUE", "1", "1.0"]))].copy()
-            active_athletes["Grade"] = active_athletes.get("Grad_Year", "Unknown").apply(get_grade_level)
-            col_filter1, col_filter2 = st.columns(2)
-            filter_gender = col_filter1.selectbox("Filter by Gender:", ["All", "Male", "Female"])
-            filter_grade = col_filter2.selectbox("Filter by Grade:", ["All", "9th", "10th", "11th", "12th", "Middle School"])
-            if filter_gender != "All": active_athletes = active_athletes[active_athletes["Gender"].str.title() == filter_gender]
-            if filter_grade != "All": active_athletes = active_athletes[active_athletes["Grade"] == filter_grade]
-            athlete_dict = {row["Username"]: f"{row['First_Name']} {row['Last_Name']} ({row['Grade']})" for _, row in active_athletes.iterrows()}
-            if not athlete_dict: st.info("No active athletes match this filter.")
+            
+            # 1. Update Columns to include the Status Filter
+            col_filter1, col_filter2, col_filter3 = st.columns([1, 1, 1])
+            filter_status = col_filter1.selectbox("Filter by Status:", ["Active", "Archived", "All"])
+            filter_gender = col_filter2.selectbox("Filter by Gender:", ["All", "Male", "Female"])
+            filter_grade = col_filter3.selectbox("Filter by Grade:", ["All", "9th", "10th", "11th", "12th", "Middle School"])
+            
+            # 2. Grab Athletes based on Status
+            base_athletes = roster_data[roster_data["Role"].str.upper() == "ATHLETE"].copy()
+            if filter_status == "Active":
+                base_athletes = base_athletes[base_athletes["Active_Clean"].isin(["TRUE", "1", "1.0"])]
+            elif filter_status == "Archived":
+                base_athletes = base_athletes[~base_athletes["Active_Clean"].isin(["TRUE", "1", "1.0"])]
+                
+            base_athletes["Grade"] = base_athletes.get("Grad_Year", "Unknown").apply(get_grade_level)
+            
+            # 3. Apply Gender and Grade Filters
+            if filter_gender != "All": base_athletes = base_athletes[base_athletes["Gender"].str.title() == filter_gender]
+            if filter_grade != "All": base_athletes = base_athletes[base_athletes["Grade"] == filter_grade]
+            
+            # 4. Sort Alphabetically by Last Name
+            base_athletes = base_athletes.sort_values(by="Last_Name")
+            
+            # 5. Format the display string (Last Name, First Name - Grade)
+            athlete_dict = {row["Username"]: f"{row['Last_Name']}, {row['First_Name']} - {row['Grade']}" for _, row in base_athletes.iterrows()}
+            
+            if not athlete_dict: 
+                st.info("No athletes match this filter.")
             else:
-                selected_username = st.selectbox("Select an Athlete:", options=list(athlete_dict.keys()), format_func=lambda x: athlete_dict[x])
+                col_sel1, col_sel2 = st.columns([1, 2])
+                with col_sel1:
+                    selected_username = st.selectbox("Select an Athlete:", options=list(athlete_dict.keys()), format_func=lambda x: athlete_dict[x])
+                
                 if selected_username: 
                     st.markdown("---")
+                    
+                    # 6. Display the beautiful header with Grade
+                    target_student = base_athletes[base_athletes["Username"] == selected_username].iloc[0]
+                    st.markdown(f"### 🏃 {target_student['First_Name']} {target_student['Last_Name']} ({target_student['Grade']})")
                     
                     u_races = races_data[races_data["Username"] == selected_username]
                     u_works = workouts_data[workouts_data["Username"] == selected_username]
                     athlete_seasons = sorted(list(set(u_races["Season"].tolist() + u_works["Season"].tolist())), reverse=True)
                     if not athlete_seasons: athlete_seasons = [CURRENT_SEASON]
                     
-                    sel_season = st.selectbox("View Season:", athlete_seasons, key="coach_athlete_season")
+                    col_s1, col_s2 = st.columns([1, 3])
+                    with col_s1:
+                        sel_season = st.selectbox("View Season:", athlete_seasons, key="coach_athlete_season")
                     
                     sub_tab1, sub_tab2, sub_tab3, sub_tab4 = st.tabs(["Race Results", "Workouts", "Training Paces", "Career PRs"])
                     with sub_tab1: display_athlete_races(selected_username, sel_season)

@@ -27,14 +27,14 @@ THEMES = {
     "MCXC Elite (Dark)": {  
         "bar": f"linear-gradient(to right, {MCXC_CRIMSON}, {MCXC_GOLD}, {MCXC_CRIMSON})", 
         "metric_bg": "rgba(199, 182, 131, 0.1)", "metric_border": "rgba(199, 182, 131, 0.3)",
-        "line": MCXC_GOLD, "app_bg": MCXC_NAVY, "text": "#F0F2F6", 
+        "line": MCXC_GOLD, "app_bg": MCXC_NAVY, "text": "#FFFFFF", 
         "header": MCXC_GOLD, 
         "sidebar_bg": "#08182D", "plotly_template": "plotly_dark", "is_dark": True
     },
     "Midnight Runner (Dark)": {
         "bar": "linear-gradient(to right, #FF4B4B, #FF904F)", 
         "metric_bg": "rgba(255, 75, 75, 0.1)", "metric_border": "rgba(255, 75, 75, 0.3)",
-        "line": "#FF4B4B", "app_bg": "#0E1117", "text": "#F0F2F6", 
+        "line": "#FF4B4B", "app_bg": "#0E1117", "text": "#FFFFFF", 
         "header": MCXC_GOLD, 
         "sidebar_bg": "#1A1C24", "plotly_template": "plotly_dark", "is_dark": True
     },
@@ -55,7 +55,7 @@ THEMES = {
     "Neon Track (Dark)": {
         "bar": "linear-gradient(to right, #E040FB, #18FFFF)", 
         "metric_bg": "rgba(224, 64, 251, 0.1)", "metric_border": "rgba(24, 255, 255, 0.3)",
-        "line": "#18FFFF", "app_bg": "#121212", "text": "#F0F2F6", 
+        "line": "#18FFFF", "app_bg": "#121212", "text": "#FFFFFF", 
         "header": "#E040FB",
         "sidebar_bg": "#1E1E1E", "plotly_template": "plotly_dark", "is_dark": True
     }

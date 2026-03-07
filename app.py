@@ -603,6 +603,7 @@ def display_athlete_races(target_username, target_season):
     else:
         st.info("No active race data found for this season.")
 
+# --- UPGRADED WORKOUT ANALYZER ---
 def display_athlete_workouts(target_username, target_season):
     user_workouts = workouts_data[(workouts_data["Username"] == target_username) & (workouts_data["Season"] == target_season)].copy()
     if user_workouts.empty: return st.info("No workout data found for this season.")
@@ -619,7 +620,7 @@ def display_athlete_workouts(target_username, target_season):
     
     present_w = user_workouts[user_workouts["Status"] == "Present"]
     
-    tab_log, tab_spread, tab_trend = st.tabs(["📋 Workout Log", "🎯 Specific Session Variance", "📈 Category Trends"])
+    tab_log, tab_spread, tab_trend = st.tabs(["📋 Workout Log", "🎯 Specific Session Variance", "📈 Specific Workout Trends"])
     
     with tab_log:
         st.markdown("### Master Workout Log")
@@ -661,28 +662,38 @@ def display_athlete_workouts(target_username, target_season):
                 st.info("This workout does not have enough split data to analyze variance.")
 
     with tab_trend:
-        st.markdown("### Category Trends")
-        st.markdown("Select a workout type to view your average pace dropping across the season.")
-        unique_types = present_w["Workout_Type"].unique().tolist()
-        sel_type = st.selectbox("Select Workout Type to Compare:", unique_types)
+        st.markdown("### Specific Workout Trends")
+        st.markdown("Select a specific workout and distance to view your average pace dropping across the season.")
         
-        type_w = present_w[present_w["Workout_Type"] == sel_type].sort_values("Date_Obj")
-        trend_data = []
-        for idx, row in type_w.iterrows():
-            s_list = [time_to_seconds(s.strip()) for s in str(row["Splits"]).split(",") if time_to_seconds(s.strip()) > 0]
-            if s_list:
-                trend_data.append({"Date": row["Date_Obj"], "Avg_Sec": np.mean(s_list), "Details": row["Rep_Distance"], "Formatted": seconds_to_time(np.mean(s_list))})
-                
-        if len(trend_data) > 1:
-            tdf = pd.DataFrame(trend_data)
-            tdf["Avg_Min"] = tdf["Avg_Sec"] / 60.0
-            fig2 = px.line(tdf, x="Date", y="Avg_Min", markers=True, text="Details", title=f"Average {sel_type} Pace Over Time", hover_data={"Date": "|%b %d", "Avg_Min": False, "Formatted": True, "Details": False})
-            fig2.update_traces(textposition="top center", line_color=THEMES[st.session_state["theme"]]["line"], line_width=3, marker_size=8)
-            fig2.update_yaxes(title="Average Pace", autorange="reversed")
-            fig2.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"])
-            st.plotly_chart(fig2, use_container_width=True)
+        if present_w.empty:
+            st.info("No completed workouts found to analyze.")
         else:
-            st.info("Not enough data logged in this category to show a trend line.")
+            # FIX: Grouping strictly by the specific workout + distance combination!
+            unique_combos = present_w["Combo"].unique().tolist()
+            sel_combo = st.selectbox("Select Specific Workout to Compare:", unique_combos)
+            
+            type_w = present_w[present_w["Combo"] == sel_combo].sort_values("Date_Obj")
+            trend_data = []
+            for idx, row in type_w.iterrows():
+                s_list = [time_to_seconds(s.strip()) for s in str(row["Splits"]).split(",") if time_to_seconds(s.strip()) > 0]
+                if s_list:
+                    trend_data.append({
+                        "Date": row["Date_Obj"], 
+                        "Avg_Sec": np.mean(s_list), 
+                        "Formatted": seconds_to_time(np.mean(s_list))
+                    })
+                    
+            if len(trend_data) > 1:
+                tdf = pd.DataFrame(trend_data)
+                tdf["Avg_Min"] = tdf["Avg_Sec"] / 60.0
+                
+                fig2 = px.line(tdf, x="Date", y="Avg_Min", markers=True, title=f"Average Pace Over Time: {sel_combo}", hover_data={"Date": "|%b %d", "Avg_Min": False, "Formatted": True})
+                fig2.update_traces(line_color=THEMES[st.session_state["theme"]]["line"], line_width=3, marker_size=10)
+                fig2.update_yaxes(title="Average Pace", autorange="reversed")
+                fig2.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"])
+                st.plotly_chart(fig2, use_container_width=True)
+            else:
+                st.info("You need to complete this specific workout at least twice to generate a trend line!")
 
 # ==========================================
 # --- 6. LOGIN & SECURITY PAGES ---

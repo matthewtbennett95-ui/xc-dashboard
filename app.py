@@ -268,18 +268,18 @@ def wrap_html_for_print(title, body_content, is_attendance=False):
     /* Setting margin to 0 specifically strips out the browser's default Date and URL headers! */
     @page {{ margin: 0; {page_settings} }}
     
-    h2 { 
+    h2 {{ 
         margin: 0 0 10px 0; 
         font-size: 22px; 
         font-weight: 700; 
         text-align: center; 
         color: var(--text-main);
         letter-spacing: -0.5px;
-        page-break-after: avoid; /* Prevents title from being alone at bottom of page */
+        page-break-after: avoid; 
         break-after: avoid;
-    }
+    }}
     
-    h3 { 
+    h3 {{ 
         margin: 15px 0 0 0; 
         font-size: 14px; 
         font-weight: 600; 
@@ -289,42 +289,41 @@ def wrap_html_for_print(title, body_content, is_attendance=False):
         border-radius: 8px 8px 0 0;
         border-bottom: none;
         color: var(--text-main);
-        page-break-after: avoid; /* Glues the race name to the table below it */
+        page-break-after: avoid; 
         break-after: avoid;
-    }
+    }}
     
-    table { 
+    table {{ 
         width: 100%; 
         border-collapse: collapse; 
         margin-bottom: 25px; 
-        page-break-inside: avoid; /* Tells printer to push whole table to next page if it doesn't fit */
+        page-break-inside: avoid; 
         break-inside: avoid;
         border: 1px solid var(--border-color); 
-    }
+    }}
     
     tr {{ page-break-inside: avoid; page-break-after: auto; }}
     
-    th, td { 
-        padding: 10px 4px; /* Reduced side padding slightly to give THURS more room */
+    th, td {{ 
+        padding: 10px 4px; 
         border: 1px solid var(--border-color); 
-        text-align: center; /* Centers the check-in boxes and headers */
+        text-align: center; 
         font-size: 12px; 
-    }
+    }}
     
-    /* Forces ONLY the first column (Runner Names) to stay left-aligned */
-    th:first-child, td:first-child {
+    th:first-child, td:first-child {{
         text-align: left;
         padding-left: 12px;
-    }
+    }}
     
-    th { 
+    th {{ 
         color: var(--text-muted); 
         font-weight: 600; 
         text-transform: uppercase; 
-        letter-spacing: 0.5px; /* Slightly reduced letter spacing to help fit words */
+        letter-spacing: 0.5px; 
         font-size: 11px; 
         background: #f8fafc;
-    }
+    }}
     
     .print-btn {{ 
         background: var(--mcxc-crimson); color: #ffffff; border: none; 
@@ -343,7 +342,7 @@ def wrap_html_for_print(title, body_content, is_attendance=False):
     
     @media print {{ 
         .no-print {{ display: none !important; }} 
-        body {{ padding: 0.5in; }} /* Restores the padding since we stripped the @page margin */
+        body {{ padding: 0.5in; }} 
         * {{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }} 
     }}
 </style>

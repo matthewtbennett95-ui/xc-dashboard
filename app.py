@@ -501,19 +501,31 @@ def display_suggested_paces(target_username):
 
 def display_team_resources():
     st.subheader("📚 Team Resources")
-    if docs_data.empty or docs_data["URL"].str.strip().eq("").all():
+    if docs_data.empty:
         st.info("No documents have been uploaded by the coaches yet.")
         return
         
+    has_valid_docs = False
     for _, row in docs_data.iterrows():
-        url = str(row["URL"]).strip()
-        if url:
-            st.markdown(f"#### {row['Title']}")
-            if "pub" not in url and "edit" in url:
-                url = url.replace("edit", "preview")
-            st.markdown(f'<iframe src="{url}" width="100%" height="500px" style="border: 1px solid #ccc; border-radius: 8px;"></iframe>', unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-
+        raw_url = row.get("URL", "")
+        
+        # Check if the cell isn't empty, and ensure it's an actual web link
+        if pd.notna(raw_url):
+            url = str(raw_url).strip()
+            if url.startswith("http"):
+                has_valid_docs = True
+                st.markdown(f"#### {row['Title']}")
+                
+                # Make sure the link displays the document cleanly
+                if "pub" not in url and "edit" in url:
+                    url = url.replace("edit", "preview")
+                
+                # Increased height to 850px for a full-page view!
+                st.markdown(f'<iframe src="{url}" width="100%" height="850px" style="border: 1px solid #ccc; border-radius: 8px;"></iframe>', unsafe_allow_html=True)
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+    if not has_valid_docs:
+        st.info("No active document links have been uploaded yet.")
 def display_career_history(target_username):
     user_races = races_data[(races_data["Username"] == target_username) & (races_data["Active"].isin(["TRUE", "1", "1.0"]))].copy()
     if user_races.empty:

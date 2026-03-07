@@ -334,6 +334,12 @@ def wrap_html_for_print(title, body_content, is_attendance=False):
         margin-bottom: 10px;
     }}
     .print-btn:hover {{ filter: brightness(1.1); transform: translateY(-1px); }}
+
+    .keep-together {{
+        page-break-inside: avoid;
+        break-inside: avoid;
+        margin-bottom: 25px;
+    }}
     
     .no-print-container {{
         text-align: center; margin-bottom: 30px; padding: 20px; 
@@ -1709,6 +1715,7 @@ def home_page():
                             
                         html = f"<h2>{p_meet} - Split Sheet</h2>"
                         for race in races_to_print:
+                            html += "<div class='keep-together'>"
                             html += f"<h3>{race['name']} ({race['dist']})</h3>"
                             html += "<table>"
                             html += "<tr><th>Athlete</th><th>Prior Best at Meet</th><th>1 Mile</th><th>2 Mile</th><th>Finish</th></tr>"
@@ -1736,6 +1743,7 @@ def home_page():
                                 
                                 html += f"<tr><td>{a_name}</td><td>{prior_time}</td><td></td><td></td><td></td></tr>"
                             html += "</table><br>"
+                            html += "</div>"
                             
                         final_html = wrap_html_for_print(f"{p_meet} Split Sheet", html)
                         st.success(f"Successfully created '{p_meet}'! You can now download the sheet or go to 'Data Entry' to input times.")

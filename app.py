@@ -615,13 +615,18 @@ def show_rankings_tab():
                 avg_time = weighted_sum / total_weight
                 results.append({"Athlete": f"{group.iloc[0]['First_Name']} {group.iloc[0]['Last_Name']}", "Time_Sec": avg_time, "Mark": seconds_to_time(avg_time)})
                 
-        if not results: st.info("No valid ranked data (check if races have a weight of 0).")
+        if not results: 
+            st.info("No valid ranked data (check if races have a weight of 0).")
         else:
             rank_df = pd.DataFrame(results).sort_values(by="Time_Sec").reset_index(drop=True)
             rank_df.index = rank_df.index + 1
             rank_df = rank_df.rename_axis("Rank").reset_index()
             display_df = rank_df[["Rank", "Athlete", "Mark"]].rename(columns={"Mark": "PR Time" if r_metric == "Personal Record (PR)" else "Weighted Avg Time"})
-            st.dataframe(display_df, hide_index=True, use_container_width=True)
+            
+            # FIX: Wrapping the leaderboard in columns to make it narrower
+            spacer_left, center_col, spacer_right = st.columns([1, 2, 1])
+            with center_col:
+                st.dataframe(display_df, hide_index=True, use_container_width=True)
 
     with tab_grid:
         st.markdown(f"### Master {r_dist} Grid")
@@ -629,7 +634,11 @@ def show_rankings_tab():
         grid_df["Athlete"] = grid_df["First_Name"] + " " + grid_df["Last_Name"]
         grid_df["Date_Obj"] = pd.to_datetime(grid_df["Date"], errors='coerce')
         grid_df = grid_df.sort_values(by="Date_Obj")
-        grid_df["Race_Col"] = grid_df["Meet_Name"] + " (" + grid_df["Date_Obj"].dt.strftime('%m/%d').fillna("") + ")"
+        
+        # FIX: Append the weight multiplier directly to the Meet column name!
+        grid_df["Weight_Str"] = grid_df["Weight"].apply(lambda x: f"{float(x):.1f}")
+        grid_df["Race_Col"] = grid_df["Meet_Name"] + " (" + grid_df["Date_Obj"].dt.strftime('%m/%d').fillna("") + ") [" + grid_df["Weight_Str"] + "x]"
+        
         ordered_cols = grid_df["Race_Col"].unique().tolist()
         pivot_df = grid_df.pivot_table(index="Athlete", columns="Race_Col", values="Total_Time", aggfunc="first").reindex(columns=ordered_cols).fillna("-").reset_index()
         st.dataframe(pivot_df, hide_index=True, use_container_width=True)

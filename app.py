@@ -280,14 +280,24 @@ DEFAULT_DOCS = pd.DataFrame([
     {"Title": "Meet Schedule & Location Links", "URL": ""}
 ])
 
-try: vdot_data = conn.read(worksheet="VDOT", ttl=600).dropna(how="all")
-except Exception: vdot_data = DEFAULT_VDOT
+# Check if tabs exist AND if they actually have data. If blank, use defaults!
+try:
+    vdot_data = conn.read(worksheet="VDOT", ttl=600).dropna(how="all")
+    if "5K_Time" not in vdot_data.columns: vdot_data = DEFAULT_VDOT
+except Exception:
+    vdot_data = DEFAULT_VDOT
 
-try: rest_data = conn.read(worksheet="Rest", ttl=600).dropna(how="all")
-except Exception: rest_data = DEFAULT_REST
+try:
+    rest_data = conn.read(worksheet="Rest", ttl=600).dropna(how="all")
+    if "Workout" not in rest_data.columns: rest_data = DEFAULT_REST
+except Exception:
+    rest_data = DEFAULT_REST
 
-try: docs_data = conn.read(worksheet="Documents", ttl=600).dropna(how="all")
-except Exception: docs_data = DEFAULT_DOCS
+try:
+    docs_data = conn.read(worksheet="Documents", ttl=600).dropna(how="all")
+    if "Title" not in docs_data.columns: docs_data = DEFAULT_DOCS
+except Exception:
+    docs_data = DEFAULT_DOCS
 
 if "Username" in roster_data.columns: roster_data = roster_data.dropna(subset=["Username"])
 if "Username" in races_data.columns: races_data = races_data.dropna(subset=["Username"])

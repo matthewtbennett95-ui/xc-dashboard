@@ -541,7 +541,6 @@ def display_career_history(target_username):
         idx = dist_races.groupby("Season")["Time_Sec"].idxmin()
         prs = dist_races.loc[idx].sort_values("Season")
         
-        # Ensure the season is a string so the x-axis only shows the specific years
         prs["Season"] = prs["Season"].astype(str)
 
         fig = px.bar(
@@ -562,15 +561,20 @@ def display_career_history(target_username):
         fig.update_yaxes(visible=False, showgrid=False) 
         fig.update_xaxes(title="", type="category")
         
-        # The magic block to shrink everything down
         fig.update_layout(
             template=THEMES[st.session_state["theme"]]["plotly_template"], 
             margin=dict(t=40, b=0, l=0, r=0),
-            height=300,        # Makes the chart shorter
-            bargap=0.6         # Increases the gap between bars, making the bars thinner
+            height=300,
+            bargap=0.1,                     # Brings the bars right next to each other
+            paper_bgcolor="rgba(0,0,0,0)",  # Makes background transparent
+            plot_bgcolor="rgba(0,0,0,0)"    # Makes background transparent
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        # Wraps the chart in columns so it shrinks horizontally instead of stretching!
+        col_chart, col_empty = st.columns([1, 1.5])
+        with col_chart:
+            # theme=None is the magic trick that stops the white background bug!
+            st.plotly_chart(fig, use_container_width=True, theme=None)
         
         clean_prs = prs[["Season", "Total_Time", "Meet_Name", "Date"]].rename(columns={"Total_Time": "PR Time", "Meet_Name": "Meet", "Date": "Date Achieved"})
         st.dataframe(clean_prs, hide_index=True, use_container_width=True)

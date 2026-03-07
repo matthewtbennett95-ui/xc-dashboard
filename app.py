@@ -299,21 +299,27 @@ def wrap_html_for_print(title, body_content, is_attendance=False):
     
     tr {{ page-break-inside: avoid; page-break-after: auto; }}
     
-    th, td {{ 
-        padding: 10px 12px; 
+    th, td { 
+        padding: 10px 4px; /* Reduced side padding slightly to give THURS more room */
         border: 1px solid var(--border-color); 
-        text-align: left; 
+        text-align: center; /* Centers the check-in boxes and headers */
         font-size: 12px; 
-    }}
+    }
     
-    th {{ 
+    /* Forces ONLY the first column (Runner Names) to stay left-aligned */
+    th:first-child, td:first-child {
+        text-align: left;
+        padding-left: 12px;
+    }
+    
+    th { 
         color: var(--text-muted); 
         font-weight: 600; 
         text-transform: uppercase; 
-        letter-spacing: 1px; 
+        letter-spacing: 0.5px; /* Slightly reduced letter spacing to help fit words */
         font-size: 11px; 
         background: #f8fafc;
-    }}
+    }
     
     .print-btn {{ 
         background: var(--mcxc-crimson); color: #ffffff; border: none; 

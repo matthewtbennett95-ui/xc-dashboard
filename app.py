@@ -568,6 +568,7 @@ def display_career_history(target_username):
             bargap=0.1,                     # Brings the bars right next to each other
             paper_bgcolor="rgba(0,0,0,0)",  # Makes background transparent
             plot_bgcolor="rgba(0,0,0,0)"    # Makes background transparent
+            font=dict(color=THEMES[st.session_state["theme"]]["text"])
         )
         
         # Wraps the chart in columns so it shrinks horizontally instead of stretching!

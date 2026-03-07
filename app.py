@@ -268,16 +268,18 @@ def wrap_html_for_print(title, body_content, is_attendance=False):
     /* Setting margin to 0 specifically strips out the browser's default Date and URL headers! */
     @page {{ margin: 0; {page_settings} }}
     
-    h2 {{ 
+    h2 { 
         margin: 0 0 10px 0; 
         font-size: 22px; 
         font-weight: 700; 
         text-align: center; 
         color: var(--text-main);
         letter-spacing: -0.5px;
-    }}
+        page-break-after: avoid; /* Prevents title from being alone at bottom of page */
+        break-after: avoid;
+    }
     
-    h3 {{ 
+    h3 { 
         margin: 15px 0 0 0; 
         font-size: 14px; 
         font-weight: 600; 
@@ -287,15 +289,18 @@ def wrap_html_for_print(title, body_content, is_attendance=False):
         border-radius: 8px 8px 0 0;
         border-bottom: none;
         color: var(--text-main);
-    }}
+        page-break-after: avoid; /* Glues the race name to the table below it */
+        break-after: avoid;
+    }
     
-    table {{ 
+    table { 
         width: 100%; 
         border-collapse: collapse; 
         margin-bottom: 25px; 
-        page-break-inside: auto; 
-        border: 1px solid var(--border-color); /* Added this to close off the bottom of the table */
-    }}
+        page-break-inside: avoid; /* Tells printer to push whole table to next page if it doesn't fit */
+        break-inside: avoid;
+        border: 1px solid var(--border-color); 
+    }
     
     tr {{ page-break-inside: avoid; page-break-after: auto; }}
     

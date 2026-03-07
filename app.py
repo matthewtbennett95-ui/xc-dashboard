@@ -567,7 +567,7 @@ def display_career_history(target_username):
             height=300,
             bargap=0.1,                     # Brings the bars right next to each other
             paper_bgcolor="rgba(0,0,0,0)",  # Makes background transparent
-            plot_bgcolor="rgba(0,0,0,0)"    # Makes background transparent
+            plot_bgcolor="rgba(0,0,0,0)",    # Makes background transparent
             font=dict(color=THEMES[st.session_state["theme"]]["text"])
         )
         

@@ -34,7 +34,7 @@ THEMES = {
     "Midnight Runner (Dark)": {
         "bar": "linear-gradient(to right, #FF4B4B, #FF904F)", 
         "metric_bg": "rgba(255, 75, 75, 0.1)", "metric_border": "rgba(255, 75, 75, 0.3)",
-        "line": "#FF4B4B", "app_bg": "#0E1117", "text": "#FFFFFF", 
+        "line": "#FF4B4B", "app_bg": "#0E1117", "text": "#F0F2F6", 
         "header": MCXC_GOLD, 
         "sidebar_bg": "#1A1C24", "plotly_template": "plotly_dark", "is_dark": True
     },
@@ -55,7 +55,7 @@ THEMES = {
     "Neon Track (Dark)": {
         "bar": "linear-gradient(to right, #E040FB, #18FFFF)", 
         "metric_bg": "rgba(224, 64, 251, 0.1)", "metric_border": "rgba(24, 255, 255, 0.3)",
-        "line": "#18FFFF", "app_bg": "#121212", "text": "#FFFFFF", 
+        "line": "#18FFFF", "app_bg": "#121212", "text": "#F0F2F6", 
         "header": "#E040FB",
         "sidebar_bg": "#1E1E1E", "plotly_template": "plotly_dark", "is_dark": True
     }

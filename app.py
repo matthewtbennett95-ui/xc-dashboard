@@ -10,7 +10,7 @@ from streamlit_gsheets import GSheetsConnection
 # ==========================================
 # --- 1. APP SETUP & VISUAL THEMES ---
 # ==========================================
-st.set_page_config(page_title="MCXC Team Dashboard", layout="centered")
+st.set_page_config(page_title="MCXC Team Dashboard", layout="wide")
 
 MCXC_CRIMSON = "#8B2331"
 MCXC_NAVY = "#0C223F"
@@ -219,22 +219,22 @@ races_data = conn.read(worksheet="Races", ttl=600).dropna(how="all")
 workouts_data = conn.read(worksheet="Workouts", ttl=600).dropna(how="all")
 
 DEFAULT_VDOT = pd.DataFrame([
-    {"VDOT": 66, "5K_Time": "15:41", "2_Mile_Time": "9:46", "Easy_Pace": "6:36-7:00", "Tempo_Pace": "5:28", "Interval_400m": "1:15", "Interval_1000m": "3:06"},
-    {"VDOT": 64, "5K_Time": "16:07", "2_Mile_Time": "10:02", "Easy_Pace": "6:46-7:09", "Tempo_Pace": "5:36", "Interval_400m": "1:17", "Interval_1000m": "3:12"},
-    {"VDOT": 62, "5K_Time": "16:34", "2_Mile_Time": "10:19", "Easy_Pace": "6:56-7:21", "Tempo_Pace": "5:45", "Interval_400m": "1:19", "Interval_1000m": "3:17"},
-    {"VDOT": 60, "5K_Time": "17:03", "2_Mile_Time": "10:37", "Easy_Pace": "7:07-7:33", "Tempo_Pace": "5:54", "Interval_400m": "1:21", "Interval_1000m": "3:23"},
-    {"VDOT": 58, "5K_Time": "17:33", "2_Mile_Time": "10:56", "Easy_Pace": "7:19-7:46", "Tempo_Pace": "6:04", "Interval_400m": "1:23", "Interval_1000m": "3:29"},
-    {"VDOT": 56, "5K_Time": "18:05", "2_Mile_Time": "11:17", "Easy_Pace": "7:31-7:58", "Tempo_Pace": "6:14", "Interval_400m": "1:26", "Interval_1000m": "3:34"},
-    {"VDOT": 54, "5K_Time": "18:40", "2_Mile_Time": "11:39", "Easy_Pace": "7:44-8:13", "Tempo_Pace": "6:26", "Interval_400m": "1:28", "Interval_1000m": "3:40"},
-    {"VDOT": 52, "5K_Time": "19:17", "2_Mile_Time": "12:02", "Easy_Pace": "7:58-8:28", "Tempo_Pace": "6:37", "Interval_400m": "1:31", "Interval_1000m": "3:47"},
-    {"VDOT": 50, "5K_Time": "19:55", "2_Mile_Time": "12:27", "Easy_Pace": "8:15-8:45", "Tempo_Pace": "6:51", "Interval_400m": "1:34", "Interval_1000m": "3:55"},
-    {"VDOT": 48, "5K_Time": "20:39", "2_Mile_Time": "12:55", "Easy_Pace": "8:31-9:02", "Tempo_Pace": "7:05", "Interval_400m": "1:37", "Interval_1000m": "4:03"},
-    {"VDOT": 46, "5K_Time": "21:25", "2_Mile_Time": "13:24", "Easy_Pace": "8:48-9:21", "Tempo_Pace": "7:19", "Interval_400m": "1:40", "Interval_1000m": "4:11"},
-    {"VDOT": 44, "5K_Time": "22:13", "2_Mile_Time": "13:56", "Easy_Pace": "9:09-9:42", "Tempo_Pace": "7:35", "Interval_400m": "1:44", "Interval_1000m": "4:21"},
-    {"VDOT": 42, "5K_Time": "23:08", "2_Mile_Time": "14:31", "Easy_Pace": "9:28-10:04", "Tempo_Pace": "7:53", "Interval_400m": "1:48", "Interval_1000m": "4:36"},
-    {"VDOT": 40, "5K_Time": "24:07", "2_Mile_Time": "15:08", "Easy_Pace": "9:49-10:27", "Tempo_Pace": "8:13", "Interval_400m": "1:53", "Interval_1000m": "4:41"},
-    {"VDOT": 35, "5K_Time": "26:58", "2_Mile_Time": "16:58", "Easy_Pace": "10:52-11:35", "Tempo_Pace": "9:09", "Interval_400m": "2:06", "Interval_1000m": "5:14"},
-    {"VDOT": 30, "5K_Time": "30:40", "2_Mile_Time": "19:19", "Easy_Pace": "12:17-12:59", "Tempo_Pace": "10:19", "Interval_400m": "2:22", "Interval_1000m": "5:55"},
+    {"VDOT": 66, "5K_Time": "15:41", "2_Mile_Time": "9:46", "Easy_Pace": "6:36-7:00", "Tempo_Mile": "5:28", "Tempo_400m": "1:21", "Interval_400m": "1:15", "Interval_800m": "2:30", "Interval_1000m": "3:06", "Interval_1200m": "3:42", "Interval_Mile": "5:00"},
+    {"VDOT": 64, "5K_Time": "16:07", "2_Mile_Time": "10:02", "Easy_Pace": "6:46-7:09", "Tempo_Mile": "5:36", "Tempo_400m": "1:23", "Interval_400m": "1:17", "Interval_800m": "2:34", "Interval_1000m": "3:12", "Interval_1200m": "3:50", "Interval_Mile": "5:08"},
+    {"VDOT": 62, "5K_Time": "16:34", "2_Mile_Time": "10:19", "Easy_Pace": "6:56-7:21", "Tempo_Mile": "5:45", "Tempo_400m": "1:26", "Interval_400m": "1:19", "Interval_800m": "2:38", "Interval_1000m": "3:17", "Interval_1200m": "3:56", "Interval_Mile": "5:16"},
+    {"VDOT": 60, "5K_Time": "17:03", "2_Mile_Time": "10:37", "Easy_Pace": "7:07-7:33", "Tempo_Mile": "5:54", "Tempo_400m": "1:28", "Interval_400m": "1:21", "Interval_800m": "2:42", "Interval_1000m": "3:23", "Interval_1200m": "4:04", "Interval_Mile": "5:24"},
+    {"VDOT": 58, "5K_Time": "17:33", "2_Mile_Time": "10:56", "Easy_Pace": "7:19-7:46", "Tempo_Mile": "6:04", "Tempo_400m": "1:31", "Interval_400m": "1:23", "Interval_800m": "2:47", "Interval_1000m": "3:29", "Interval_1200m": "4:11", "Interval_Mile": "5:34"},
+    {"VDOT": 56, "5K_Time": "18:05", "2_Mile_Time": "11:17", "Easy_Pace": "7:31-7:58", "Tempo_Mile": "6:14", "Tempo_400m": "1:33", "Interval_400m": "1:26", "Interval_800m": "2:51", "Interval_1000m": "3:34", "Interval_1200m": "4:17", "Interval_Mile": "5:42"},
+    {"VDOT": 54, "5K_Time": "18:40", "2_Mile_Time": "11:39", "Easy_Pace": "7:44-8:13", "Tempo_Mile": "6:26", "Tempo_400m": "1:36", "Interval_400m": "1:28", "Interval_800m": "2:56", "Interval_1000m": "3:40", "Interval_1200m": "4:24", "Interval_Mile": "5:52"},
+    {"VDOT": 52, "5K_Time": "19:17", "2_Mile_Time": "12:02", "Easy_Pace": "7:58-8:28", "Tempo_Mile": "6:37", "Tempo_400m": "1:39", "Interval_400m": "1:31", "Interval_800m": "3:02", "Interval_1000m": "3:47", "Interval_1200m": "4:32", "Interval_Mile": "6:04"},
+    {"VDOT": 50, "5K_Time": "19:55", "2_Mile_Time": "12:27", "Easy_Pace": "8:15-8:45", "Tempo_Mile": "6:51", "Tempo_400m": "1:42", "Interval_400m": "1:34", "Interval_800m": "3:08", "Interval_1000m": "3:55", "Interval_1200m": "4:42", "Interval_Mile": "6:16"},
+    {"VDOT": 48, "5K_Time": "20:39", "2_Mile_Time": "12:55", "Easy_Pace": "8:31-9:02", "Tempo_Mile": "7:05", "Tempo_400m": "1:46", "Interval_400m": "1:37", "Interval_800m": "3:14", "Interval_1000m": "4:03", "Interval_1200m": "4:52", "Interval_Mile": "6:28"},
+    {"VDOT": 46, "5K_Time": "21:25", "2_Mile_Time": "13:24", "Easy_Pace": "8:48-9:21", "Tempo_Mile": "7:19", "Tempo_400m": "1:49", "Interval_400m": "1:40", "Interval_800m": "3:21", "Interval_1000m": "4:11", "Interval_1200m": "5:01", "Interval_Mile": "6:42"},
+    {"VDOT": 44, "5K_Time": "22:13", "2_Mile_Time": "13:56", "Easy_Pace": "9:09-9:42", "Tempo_Mile": "7:35", "Tempo_400m": "1:53", "Interval_400m": "1:44", "Interval_800m": "3:29", "Interval_1000m": "4:21", "Interval_1200m": "5:13", "Interval_Mile": "6:58"},
+    {"VDOT": 42, "5K_Time": "23:08", "2_Mile_Time": "14:31", "Easy_Pace": "9:28-10:04", "Tempo_Mile": "7:53", "Tempo_400m": "1:58", "Interval_400m": "1:48", "Interval_800m": "3:36", "Interval_1000m": "4:36", "Interval_1200m": "5:24", "Interval_Mile": "7:12"},
+    {"VDOT": 40, "5K_Time": "24:07", "2_Mile_Time": "15:08", "Easy_Pace": "9:49-10:27", "Tempo_Mile": "8:13", "Tempo_400m": "2:03", "Interval_400m": "1:53", "Interval_800m": "3:45", "Interval_1000m": "4:41", "Interval_1200m": "5:37", "Interval_Mile": "7:30"},
+    {"VDOT": 35, "5K_Time": "26:58", "2_Mile_Time": "16:58", "Easy_Pace": "10:52-11:35", "Tempo_Mile": "9:09", "Tempo_400m": "2:17", "Interval_400m": "2:06", "Interval_800m": "4:11", "Interval_1000m": "5:14", "Interval_1200m": "6:17", "Interval_Mile": "8:22"},
+    {"VDOT": 30, "5K_Time": "30:40", "2_Mile_Time": "19:19", "Easy_Pace": "12:17-12:59", "Tempo_Mile": "10:19", "Tempo_400m": "2:34", "Interval_400m": "2:22", "Interval_800m": "4:44", "Interval_1000m": "5:55", "Interval_1200m": "7:06", "Interval_Mile": "9:28"},
 ])
 
 DEFAULT_REST = pd.DataFrame([
@@ -251,7 +251,7 @@ DEFAULT_REST = pd.DataFrame([
     {"Workout": "800s (I Pace)", "Pace / Time": "19:17-19:54 (5K)", "Cycle / Rest": "5:30 Cycle"},
     {"Workout": "800s (I Pace)", "Pace / Time": "19:55-20:59 (5K)", "Cycle / Rest": "5:40 Cycle"},
     {"Workout": "800s (I Pace)", "Pace / Time": "21:00-25:10 (5K)", "Cycle / Rest": "5:50 Cycle"},
-    {"Workout": "800s (I Pace)", "Pace / Time": "25:11+ (5K)", "Cycle / Rest": "6:00 Cycle"},
+    {"Workout": "800s (I Pace)", "Pace / Time": "25:11 and over (5K)", "Cycle / Rest": "6:00 Cycle"},
     {"Workout": "1000s (I Pace)", "Pace / Time": "Sub 17:30 (5K)", "Cycle / Rest": "6:00 Cycle"},
     {"Workout": "1000s (I Pace)", "Pace / Time": "17:49-18:23 (5K)", "Cycle / Rest": "6:15 Cycle"},
     {"Workout": "1000s (I Pace)", "Pace / Time": "18:40-18:57 (5K)", "Cycle / Rest": "6:30 Cycle"},
@@ -265,10 +265,19 @@ DEFAULT_REST = pd.DataFrame([
     {"Workout": "1200s (I Pace)", "Pace / Time": "18:58-19:36 (5K)", "Cycle / Rest": "7:05 Cycle"},
     {"Workout": "1200s (I Pace)", "Pace / Time": "19:37-20:39 (5K)", "Cycle / Rest": "7:25 Cycle"},
     {"Workout": "1200s (I Pace)", "Pace / Time": "20:40-25:10 (5K)", "Cycle / Rest": "7:45 Cycle"},
+    {"Workout": "1200s (I Pace)", "Pace / Time": "All others", "Cycle / Rest": "Jog back to start, start when ready"},
     {"Workout": "Mile Intervals", "Pace / Time": "Sub 13:00 (2M)", "Cycle / Rest": "9:00 Cycle"},
     {"Workout": "Mile Intervals", "Pace / Time": "13:01-15:00 (2M)", "Cycle / Rest": "11:00 Cycle"},
     {"Workout": "Mile Intervals", "Pace / Time": "15:01-16:59 (2M)", "Cycle / Rest": "12:00 Cycle"},
-    {"Workout": "Mile Intervals", "Pace / Time": "17:00+ (2M)", "Cycle / Rest": "13:30 Cycle"}
+    {"Workout": "Mile Intervals", "Pace / Time": "17:00+ (2M)", "Cycle / Rest": "13:30 Cycle"},
+    {"Workout": "Hills (I Pace)", "Pace / Time": "Sub 22:00 (5K)", "Cycle / Rest": "10 minute cycle"},
+    {"Workout": "Hills (I Pace)", "Pace / Time": "22:00-29:00 (5K)", "Cycle / Rest": "12 minute cycle"},
+    {"Workout": "Hills (I Pace)", "Pace / Time": "29:00+ (5K)", "Cycle / Rest": "15 minute cycle"}
+])
+
+DEFAULT_DOCS = pd.DataFrame([
+    {"Title": "Team Expectations & Rules", "URL": ""},
+    {"Title": "Meet Schedule & Location Links", "URL": ""}
 ])
 
 try: vdot_data = conn.read(worksheet="VDOT", ttl=600).dropna(how="all")
@@ -276,6 +285,9 @@ except Exception: vdot_data = DEFAULT_VDOT
 
 try: rest_data = conn.read(worksheet="Rest", ttl=600).dropna(how="all")
 except Exception: rest_data = DEFAULT_REST
+
+try: docs_data = conn.read(worksheet="Documents", ttl=600).dropna(how="all")
+except Exception: docs_data = DEFAULT_DOCS
 
 if "Username" in roster_data.columns: roster_data = roster_data.dropna(subset=["Username"])
 if "Username" in races_data.columns: races_data = races_data.dropna(subset=["Username"])
@@ -337,7 +349,7 @@ def find_suggested_rest(category, compare_sec):
         
         if "sub" in cond or "under" in cond or "faster" in cond:
             if times and compare_sec < extract_seconds(times[0]): return res
-        elif "+" in cond or "slower" in cond:
+        elif "+" in cond or "slower" in cond or "over" in cond:
             if times and compare_sec >= extract_seconds(times[0]): return res
         elif len(times) == 2:
             lower = extract_seconds(times[0])
@@ -348,18 +360,22 @@ def find_suggested_rest(category, compare_sec):
 def get_athlete_baseline(target_username):
     user_races = races_data[(races_data["Username"] == target_username) & (races_data["Active"].isin(["TRUE", "1", "1.0"]))].copy()
     if user_races.empty: return None, None
+    
     c_5k = user_races[(user_races["Season"] == CURRENT_SEASON) & (user_races["Distance"].str.upper() == "5K") & (user_races["Total_Time"].str.strip() != "")]
     if not c_5k.empty:
         c_5k["sec"] = c_5k["Total_Time"].apply(time_to_seconds)
         return c_5k["sec"].min(), "Current Season 5K PR"
+        
     c_2m = user_races[(user_races["Season"] == CURRENT_SEASON) & (user_races["Distance"].str.upper() == "2 MILE") & (user_races["Total_Time"].str.strip() != "")]
     if not c_2m.empty:
         c_2m["sec"] = c_2m["Total_Time"].apply(time_to_seconds)
         return c_2m["sec"].min(), "Current Season 2-Mile PR"
+        
     past_5k = user_races[(user_races["Distance"].str.upper() == "5K") & (user_races["Total_Time"].str.strip() != "")]
     if not past_5k.empty:
         past_5k["sec"] = past_5k["Total_Time"].apply(time_to_seconds)
         return past_5k["sec"].min(), "Past Season 5K PR"
+        
     return None, None
 
 def display_suggested_paces(target_username):
@@ -372,11 +388,20 @@ def display_suggested_paces(target_username):
     st.markdown("---")
     
     best_sec, baseline_source = get_athlete_baseline(target_username)
+    vdot_df = vdot_data.copy()
+    
     if not best_sec:
-        st.info("We need at least one completed race in the database to calculate your suggested paces!")
+        st.info("ℹ️ **New Runner:** When you have races logged, you will be able to see a personalized pace calculator here! For now, you can review the Master Pace Chart below.")
+        
+        st.markdown("### Master VDOT Pace Chart")
+        disp_df = vdot_df[["VDOT", "5K_Time", "2_Mile_Time", "Easy_Pace", "Tempo_400m", "Tempo_Mile", "Interval_400m", "Interval_800m", "Interval_1000m", "Interval_1200m", "Interval_Mile"]].copy()
+        disp_df.rename(columns={"5K_Time": "5K", "2_Mile_Time": "2-Mile", "Easy_Pace": "Easy", "Tempo_400m": "T 400m", "Tempo_Mile": "T Mile", "Interval_400m": "I 400m", "Interval_800m": "I 800m", "Interval_1000m": "I 1000m", "Interval_1200m": "I 1200m", "Interval_Mile": "I Mile"}, inplace=True)
+        st.dataframe(disp_df, hide_index=True, use_container_width=True)
+        
+        st.markdown("### ⏱️ Master Rest Cycles")
+        st.dataframe(rest_data, hide_index=True, use_container_width=True)
         return
         
-    vdot_df = vdot_data.copy()
     if "2-Mile" in baseline_source: vdot_df["sec"] = vdot_df["2_Mile_Time"].apply(time_to_seconds)
     else: vdot_df["sec"] = vdot_df["5K_Time"].apply(time_to_seconds)
         
@@ -386,15 +411,12 @@ def display_suggested_paces(target_username):
     
     st.success(f"**Baseline Match:** We are using your **{baseline_source}** ({seconds_to_time(best_sec)}) to calculate your current VDOT fitness level.")
     
-    # ----------------------------------------------------
-    # --- DYNAMIC INTERACTIVE PACE & REST CALCULATOR ---
-    # ----------------------------------------------------
     st.markdown("### 🎯 Quick Pace & Rest Calculator")
     st.markdown("Select a workout below to instantly see your custom target time and rest cycle.")
     
     col_w1, col_w2 = st.columns(2)
     with col_w1:
-        wk_type = st.selectbox("Workout Type", ["Intervals", "Tempo", "Easy Run"])
+        wk_type = st.selectbox("Workout Type", ["Intervals", "Tempo", "Easy Run", "Hills"])
     with col_w2:
         if wk_type == "Intervals":
             wk_dist = st.selectbox("Distance", ["400m", "800m", "1000m", "1200m", "1 Mile"])
@@ -415,36 +437,35 @@ def display_suggested_paces(target_username):
         suggested_rest = "Continuous Run (No Rest)"
         
     elif wk_type == "Tempo":
-        tempo_mile_sec = time_to_seconds(matched_vdot_row.get("Tempo_Pace", "0:0"))
         if wk_dist == "Miles":
-            target_pace = f"{seconds_to_time(tempo_mile_sec)} per Mile"
+            target_pace = f"{matched_vdot_row.get('Tempo_Mile', 'N/A')} per Mile"
             suggested_rest = "Standard Tempo Rest (Typically 1 min per mile)"
-        else: # Tempo 400m
-            t400_sec = tempo_mile_sec / 4.023  # Approx 4 laps
-            target_pace = f"{seconds_to_time(t400_sec)} per 400m"
-            suggested_rest = find_suggested_rest("Tempo 400s", t400_sec)
+        else:
+            t400_str = matched_vdot_row.get("Tempo_400m", "N/A")
+            target_pace = f"{t400_str} per 400m"
+            suggested_rest = find_suggested_rest("Tempo 400s", time_to_seconds(t400_str))
+            
+    elif wk_type == "Hills":
+        target_pace = "Run at I-Pace effort"
+        suggested_rest = find_suggested_rest("Hills", vdot_5k_sec)
             
     elif wk_type == "Intervals":
-        i400_sec = time_to_seconds(matched_vdot_row.get("Interval_400m", "0:0"))
-        i1000_sec = time_to_seconds(matched_vdot_row.get("Interval_1000m", "0:0"))
-        
         if wk_dist == "400m":
             target_pace = matched_vdot_row.get("Interval_400m", "N/A")
             suggested_rest = "Equal rest or Coach's Discretion"
         elif wk_dist == "800m":
-            target_pace = seconds_to_time(i400_sec * 2)
+            target_pace = matched_vdot_row.get("Interval_800m", "N/A")
             suggested_rest = find_suggested_rest("800s", vdot_5k_sec)
         elif wk_dist == "1000m":
             target_pace = matched_vdot_row.get("Interval_1000m", "N/A")
             suggested_rest = find_suggested_rest("1000s", vdot_5k_sec)
         elif wk_dist == "1200m":
-            target_pace = seconds_to_time(i400_sec * 3)
+            target_pace = matched_vdot_row.get("Interval_1200m", "N/A")
             suggested_rest = find_suggested_rest("1200s", vdot_5k_sec)
         elif wk_dist == "1 Mile":
-            target_pace = seconds_to_time(i1000_sec + (i400_sec * 1.5)) # Approximation for I-Pace Mile
+            target_pace = matched_vdot_row.get("Interval_Mile", "N/A")
             suggested_rest = find_suggested_rest("Mile Intervals", vdot_2m_sec)
 
-    # Beautiful Dynamic Output Card
     theme_bg = THEMES[st.session_state['theme']]['metric_bg']
     theme_border = THEMES[st.session_state['theme']]['metric_border']
     st.markdown(f"""
@@ -454,17 +475,34 @@ def display_suggested_paces(target_username):
         <p style="font-size: 18px; margin: 0;"><strong>⏱️ Rest Cycle:</strong> {suggested_rest}</p>
     </div>
     """, unsafe_allow_html=True)
-    # ----------------------------------------------------
 
     bracket_df = vdot_df.iloc[max(0, closest_idx-1) : min(len(vdot_df), closest_idx+2)].copy()
     def highlight_match(row):
         if row["VDOT"] == matched_vdot: return ['background-color: rgba(139, 35, 49, 0.2)'] * len(row)
         return [''] * len(row)
 
-    st.markdown("### Master VDOT Pace Chart")
-    disp_df = bracket_df[["VDOT", "5K_Time", "2_Mile_Time", "Easy_Pace", "Tempo_Pace", "Interval_400m", "Interval_1000m"]].copy()
-    disp_df.rename(columns={"5K_Time": "5K Equivalent", "2_Mile_Time": "2-Mile Equivalent", "Easy_Pace": "Easy Run", "Tempo_Pace": "Tempo (Mile)", "Interval_400m": "400m (I)", "Interval_1000m": "1000m (I)"}, inplace=True)
+    st.markdown("### Your Target Pace Bracket")
+    disp_df = bracket_df[["VDOT", "5K_Time", "2_Mile_Time", "Easy_Pace", "Tempo_400m", "Tempo_Mile", "Interval_400m", "Interval_800m", "Interval_1000m", "Interval_1200m", "Interval_Mile"]].copy()
+    disp_df.rename(columns={"5K_Time": "5K", "2_Mile_Time": "2-Mile", "Easy_Pace": "Easy", "Tempo_400m": "T 400m", "Tempo_Mile": "T Mile", "Interval_400m": "I 400m", "Interval_800m": "I 800m", "Interval_1000m": "I 1000m", "Interval_1200m": "I 1200m", "Interval_Mile": "I Mile"}, inplace=True)
     st.dataframe(disp_df.style.apply(highlight_match, axis=1), hide_index=True, use_container_width=True)
+
+    st.markdown("### ⏱️ Master Rest Cycles")
+    st.dataframe(rest_data, hide_index=True, use_container_width=True)
+
+def display_team_resources():
+    st.subheader("📚 Team Resources")
+    if docs_data.empty or docs_data["URL"].str.strip().eq("").all():
+        st.info("No documents have been uploaded by the coaches yet.")
+        return
+        
+    for _, row in docs_data.iterrows():
+        url = str(row["URL"]).strip()
+        if url:
+            st.markdown(f"#### {row['Title']}")
+            if "pub" not in url and "edit" in url:
+                url = url.replace("edit", "preview")
+            st.markdown(f'<iframe src="{url}" width="100%" height="500px" style="border: 1px solid #ccc; border-radius: 8px;"></iframe>', unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
 
 def display_career_history(target_username):
     user_races = races_data[(races_data["Username"] == target_username) & (races_data["Active"].isin(["TRUE", "1", "1.0"]))].copy()
@@ -565,7 +603,8 @@ def plot_athlete_progress(user_races):
     
     fig = px.line(df, x="Date_Obj", y="Time_Min", markers=True, text="Meet_Name", title="📈 Current Season 5K Progression", hover_data={"Date_Obj": "|%b %d, %Y", "Time_Min": False, "Total_Time": True, "Meet_Name": False})
     fig.update_traces(textposition="top center", line_color=THEMES[st.session_state["theme"]]["line"], line_width=3, marker_size=8)
-    fig.update_yaxes(title="Finish Time (Minutes)", autorange="reversed")
+    # Notice: autorange="reversed" has been REMOVED here. Faster times drop visually!
+    fig.update_yaxes(title="Finish Time (Minutes)")
     fig.update_xaxes(title="Race Date")
     fig.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"], margin=dict(t=50, b=20, l=20, r=20))
     st.plotly_chart(fig, use_container_width=True)
@@ -603,7 +642,6 @@ def display_athlete_races(target_username, target_season):
     else:
         st.info("No active race data found for this season.")
 
-# --- UPGRADED WORKOUT ANALYZER ---
 def display_athlete_workouts(target_username, target_season):
     user_workouts = workouts_data[(workouts_data["Username"] == target_username) & (workouts_data["Season"] == target_season)].copy()
     if user_workouts.empty: return st.info("No workout data found for this season.")
@@ -655,7 +693,8 @@ def display_athlete_workouts(target_username, target_season):
                 
                 fig = px.scatter(gdf, x="Rep Number", y="Split Time", title="Interval Pacing Variance", hover_data={"Split Time": False, "Formatted": True})
                 fig.update_traces(marker=dict(size=14, color=THEMES[st.session_state["theme"]]["line"], line=dict(width=2, color='DarkSlateGrey')))
-                fig.update_yaxes(title="Split Time", autorange="reversed")
+                # Removed reversed autorange here too so faster times plot lower
+                fig.update_yaxes(title="Split Time")
                 fig.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"])
                 st.plotly_chart(fig, use_container_width=True)
             else:
@@ -668,7 +707,6 @@ def display_athlete_workouts(target_username, target_season):
         if present_w.empty:
             st.info("No completed workouts found to analyze.")
         else:
-            # FIX: Grouping strictly by the specific workout + distance combination!
             unique_combos = present_w["Combo"].unique().tolist()
             sel_combo = st.selectbox("Select Specific Workout to Compare:", unique_combos)
             
@@ -689,7 +727,8 @@ def display_athlete_workouts(target_username, target_season):
                 
                 fig2 = px.line(tdf, x="Date", y="Avg_Min", markers=True, title=f"Average Pace Over Time: {sel_combo}", hover_data={"Date": "|%b %d", "Avg_Min": False, "Formatted": True})
                 fig2.update_traces(line_color=THEMES[st.session_state["theme"]]["line"], line_width=3, marker_size=10)
-                fig2.update_yaxes(title="Average Pace", autorange="reversed")
+                # Removed reversed autorange here too so faster times plot lower
+                fig2.update_yaxes(title="Average Pace")
                 fig2.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"])
                 st.plotly_chart(fig2, use_container_width=True)
             else:
@@ -754,7 +793,7 @@ def home_page():
     st.markdown("---")
     
     if user_role.upper() == "COACH":
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["Athlete Lookup", "Roster Management", "Data Entry", "Team Rankings", "Meet Setup & Printables"])
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Athlete Lookup", "Roster Management", "Data Entry", "Team Rankings", "Meet Setup & Printables", "Team Resources"])
         
         with tab1:
             st.subheader("Athlete Lookup")
@@ -1488,6 +1527,19 @@ def home_page():
                         st.success("Your printable sheet is ready!")
                         st.download_button(label="📥 Download Printable HTML Sheet", data=final_html, file_name=f"{p_meet.replace(' ', '_')}_Sheet.html", mime="text/html")
 
+        with tab6:
+            st.subheader("📚 Manage Team Documents")
+            st.info("Paste the 'Publish to Web' link of your Google Docs below. They will be beautifully embedded on every athlete's dashboard. (To get this link: Open your Google Doc -> File -> Share -> Publish to Web -> Copy Link)")
+            edited_docs = st.data_editor(docs_data, num_rows="dynamic", use_container_width=True)
+            if st.button("💾 Save Documents", type="primary"):
+                with st.spinner("Saving documents..."): conn.update(worksheet="Documents", data=edited_docs)
+                st.success("Documents updated successfully!")
+                st.cache_data.clear()
+                st.rerun()
+            
+            st.markdown("---")
+            display_team_resources()
+
     # ----------------------------------
     # ATHLETE VIEW
     # ----------------------------------
@@ -1495,7 +1547,7 @@ def home_page():
         st.header("Training Dashboard")
         st.markdown("Your historical training and race data is below.")
         
-        tab_dash, tab_rankings = st.tabs(["My Season", "Team Rankings"])
+        tab_dash, tab_rankings, tab_resources = st.tabs(["My Season", "Team Rankings", "Team Resources"])
         
         with tab_dash:
             u_races = races_data[races_data["Username"] == st.session_state["username"]]
@@ -1532,6 +1584,9 @@ def home_page():
             
         with tab_rankings:
             show_rankings_tab()
+            
+        with tab_resources:
+            display_team_resources()
 
 if not st.session_state["logged_in"]: login_page()
 elif st.session_state["first_login"]: password_reset_page()

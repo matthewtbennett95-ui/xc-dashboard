@@ -68,17 +68,6 @@ def force_mobile_icon():
 force_mobile_icon()
 # ==========================================
 
-# This hides the Streamlit "Made with Streamlit" footer and the top hamburger menu
-# to give it a cleaner "Native App" feel.
-hide_st_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            </style>
-            """
-st.markdown(hide_st_style, unsafe_allow_html=True)
-
 MCXC_CRIMSON = "#8B2331"
 MCXC_NAVY = "#0C223F"
 MCXC_GOLD = "#C7B683"

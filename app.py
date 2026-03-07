@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import streamlit.components.v1 as components
+import base64
 import datetime
 import requests
 import plotly.express as px  
@@ -15,6 +17,56 @@ st.set_page_config(
     layout="wide",
     page_icon="mcxc_logo.png"  # Tells the phone to use this as the app icon!
 )
+
+# ==========================================
+# --- APP NATIVE UI & ICON HACKS ---
+# ==========================================
+
+# 1. Aggressively hide all Streamlit branding and spacing
+hide_st_style = """
+    <style>
+    /* Hide the default Streamlit footer */
+    footer {visibility: hidden !important;}
+    
+    /* Hide the top right hamburger menu */
+    [data-testid="stHeader"] {display: none !important;}
+    
+    /* Hide the floating 'Hosted with Streamlit' badge */
+    .viewerBadge_container__1QSob {display: none !important;}
+    [class^="viewerBadge_"] {display: none !important;}
+    
+    /* Bring the dashboard closer to the top of the phone screen */
+    .block-container {padding-top: 1rem !important;}
+    </style>
+"""
+st.markdown(hide_st_style, unsafe_allow_html=True)
+
+# 2. Force mobile devices to use your logo for the "Add to Home Screen" icon
+def force_mobile_icon():
+    try:
+        # Read the image file and encode it as raw base64 data
+        with open("mcxc_logo.png", "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode()
+        
+        # Inject JavaScript to dynamically create the Apple Touch Icon
+        icon_html = f"""
+        <script>
+            const doc = window.parent.document;
+            let link = doc.querySelector("link[rel~='apple-touch-icon']");
+            if (!link) {{
+                link = doc.createElement('link');
+                link.rel = 'apple-touch-icon';
+                doc.head.appendChild(link);
+            }}
+            link.href = 'data:image/png;base64,{encoded_string}';
+        </script>
+        """
+        components.html(icon_html, height=0, width=0)
+    except Exception:
+        pass
+
+force_mobile_icon()
+# ==========================================
 
 # This hides the Streamlit "Made with Streamlit" footer and the top hamburger menu
 # to give it a cleaner "Native App" feel.

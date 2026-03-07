@@ -541,12 +541,28 @@ def display_career_history(target_username):
         idx = dist_races.groupby("Season")["Time_Sec"].idxmin()
         prs = dist_races.loc[idx].sort_values("Season")
         
-        fig = px.bar(prs, x="Season", y="Time_Sec", text="Total_Time", hover_data={"Meet_Name": True, "Date": True, "Time_Sec": False}, title=f"{dist} Progression")
-        fig.update_traces(marker_color=THEMES[st.session_state["theme"]]["line"], textposition="outside", textfont=dict(size=14, color=THEMES[st.session_state["theme"]]["text"]))
-        fig.update_yaxes(visible=False, showgrid=False) 
-        fig.update_xaxes(title="Season", type="category")
-        fig.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"], margin=dict(t=40, b=0, l=0, r=0))
-        st.plotly_chart(fig, use_container_width=True)
+# Ensure the season is a string so the x-axis only shows the specific years
+career_data["Season"] = career_data["Season"].astype(str)
+
+fig = px.bar(
+    career_data, 
+    x="Season", 
+    y="Fastest_Time_Sec",
+    text="Fastest_Time",
+    # Add your color/theme parameters here if you have them
+)
+
+# This is the magic block to shrink everything down
+fig.update_layout(
+    height=300,        # Makes the chart shorter
+    bargap=0.6,        # Increases the gap between bars, making the bars thinner
+    xaxis_title="",    # Hides the unnecessary "Season" label
+    yaxis_title="Time",
+    yaxis=dict(showticklabels=False) # Hides the confusing second-based y-axis labels
+)
+fig.update_traces(textposition='outside')
+
+st.plotly_chart(fig, use_container_width=True)
         
         clean_prs = prs[["Season", "Total_Time", "Meet_Name", "Date"]].rename(columns={"Total_Time": "PR Time", "Meet_Name": "Meet", "Date": "Date Achieved"})
         st.dataframe(clean_prs, hide_index=True, use_container_width=True)

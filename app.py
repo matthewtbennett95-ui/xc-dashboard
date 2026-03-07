@@ -204,7 +204,7 @@ def wrap_html_for_print(title, body_content, is_attendance=False):
     @media print {{ .no-print {{ display: none !important; }} body {{ padding: 0; }} * {{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }} }}
 </style></head><body>
     <div class="no-print" style="text-align: center; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-        <button class="print-btn" onclick="window.print()">🖨️ Click Here to Print / Save as PDF</button>
+        <button class="print-btn" onclick="window.print()">Click Here to Print / Save as PDF</button>
         <p style="color: #666; font-size: 13px; margin: 0;"><strong>Pro Tip:</strong> For large rosters, set your printer "Scale" to <i>Fit to Page</i>.</p>
     </div>{body_content}
 </body></html>"""
@@ -389,11 +389,11 @@ def get_athlete_baseline(target_username):
     return None, None
 
 def display_suggested_paces(target_username):
-    st.subheader("📊 Suggested Training Paces")
+    st.subheader("Suggested Training Paces")
     st.markdown("""
     **What are these paces?** These suggested paces are based on the **VDOT system** (developed by legendary coach Jack Daniels). The system uses your recent race performances to measure your current fitness level and provides optimal paces to train at to maximize physiological benefits without overtraining.
     
-    *⚠️ Note: These are SUGGESTED paces. You must always adjust based on weather, if you are running on a difficult cross-country course vs a track, and how your body feels that day.*
+    *Note: These are SUGGESTED paces. You must always adjust based on weather, if you are running on a difficult cross-country course vs a track, and how your body feels that day.*
     """)
     st.markdown("---")
     
@@ -401,14 +401,14 @@ def display_suggested_paces(target_username):
     vdot_df = vdot_data.copy()
     
     if not best_sec:
-        st.info("ℹ️ **New Runner:** When you have races logged, you will be able to see a personalized pace calculator here! For now, you can review the Master Pace Chart below.")
+        st.info("**New Runner:** When you have races logged, you will be able to see a personalized pace calculator here! For now, you can review the Master Pace Chart below.")
         
         st.markdown("### Master VDOT Pace Chart")
         disp_df = vdot_df[["VDOT", "5K_Time", "2_Mile_Time", "Easy_Pace", "Tempo_400m", "Tempo_Mile", "Interval_400m", "Interval_800m", "Interval_1000m", "Interval_1200m", "Interval_Mile"]].copy()
         disp_df.rename(columns={"5K_Time": "5K", "2_Mile_Time": "2-Mile", "Easy_Pace": "Easy", "Tempo_400m": "T 400m", "Tempo_Mile": "T Mile", "Interval_400m": "I 400m", "Interval_800m": "I 800m", "Interval_1000m": "I 1000m", "Interval_1200m": "I 1200m", "Interval_Mile": "I Mile"}, inplace=True)
         st.dataframe(disp_df, hide_index=True, use_container_width=True)
         
-        st.markdown("### ⏱️ Master Rest Cycles")
+        st.markdown("### Master Rest Cycles")
         st.dataframe(rest_data, hide_index=True, use_container_width=True)
         return
         
@@ -421,10 +421,10 @@ def display_suggested_paces(target_username):
     
     st.success(f"**Baseline Match:** We are using your **{baseline_source}** ({seconds_to_time(best_sec)}) to calculate your current VDOT fitness level.")
     
-    st.markdown("### 🎯 Quick Pace & Rest Calculator")
+    st.markdown("### Quick Pace & Rest Calculator")
     st.markdown("Select a workout below to instantly see your custom target time and rest cycle.")
     
-    col_w1, col_w2 = st.columns(2)
+    col_w1, col_w2, col_w3 = st.columns([1, 1, 2])
     with col_w1:
         wk_type = st.selectbox("Workout Type", ["Intervals", "Tempo", "Easy Run", "Hills"])
     with col_w2:
@@ -480,9 +480,9 @@ def display_suggested_paces(target_username):
     theme_border = THEMES[st.session_state['theme']]['metric_border']
     st.markdown(f"""
     <div style="background-color: {theme_bg}; border: 2px solid {theme_border}; padding: 20px; border-radius: 10px; margin-top: 15px; margin-bottom: 30px;">
-        <h4 style="margin-top: 0; padding-bottom: 10px; border-bottom: 1px solid {theme_border};">🔥 {wk_type} ({wk_dist}) Target</h4>
-        <p style="font-size: 18px; margin: 10px 0;"><strong>🎯 Target Pace:</strong> {target_pace}</p>
-        <p style="font-size: 18px; margin: 0;"><strong>⏱️ Rest Cycle:</strong> {suggested_rest}</p>
+        <h4 style="margin-top: 0; padding-bottom: 10px; border-bottom: 1px solid {theme_border};">{wk_type} ({wk_dist}) Target</h4>
+        <p style="font-size: 18px; margin: 10px 0;"><strong>Target Pace:</strong> {target_pace}</p>
+        <p style="font-size: 18px; margin: 0;"><strong>Rest Cycle:</strong> {suggested_rest}</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -496,11 +496,11 @@ def display_suggested_paces(target_username):
     disp_df.rename(columns={"5K_Time": "5K", "2_Mile_Time": "2-Mile", "Easy_Pace": "Easy", "Tempo_400m": "T 400m", "Tempo_Mile": "T Mile", "Interval_400m": "I 400m", "Interval_800m": "I 800m", "Interval_1000m": "I 1000m", "Interval_1200m": "I 1200m", "Interval_Mile": "I Mile"}, inplace=True)
     st.dataframe(disp_df.style.apply(highlight_match, axis=1), hide_index=True, use_container_width=True)
 
-    st.markdown("### ⏱️ Master Rest Cycles")
+    st.markdown("### Master Rest Cycles")
     st.dataframe(rest_data, hide_index=True, use_container_width=True)
 
 def display_team_resources():
-    st.subheader("📚 Team Resources")
+    st.subheader("Team Resources")
     if docs_data.empty:
         st.info("No documents have been uploaded by the coaches yet.")
         return
@@ -508,24 +508,19 @@ def display_team_resources():
     has_valid_docs = False
     for _, row in docs_data.iterrows():
         raw_url = row.get("URL", "")
-        
-        # Check if the cell isn't empty, and ensure it's an actual web link
         if pd.notna(raw_url):
             url = str(raw_url).strip()
             if url.startswith("http"):
                 has_valid_docs = True
                 st.markdown(f"#### {row['Title']}")
-                
-                # Make sure the link displays the document cleanly
                 if "pub" not in url and "edit" in url:
                     url = url.replace("edit", "preview")
-                
-                # Increased height to 850px for a full-page view!
                 st.markdown(f'<iframe src="{url}" width="100%" height="850px" style="border: 1px solid #ccc; border-radius: 8px;"></iframe>', unsafe_allow_html=True)
                 st.markdown("<br>", unsafe_allow_html=True)
                 
     if not has_valid_docs:
         st.info("No active document links have been uploaded yet.")
+
 def display_career_history(target_username):
     user_races = races_data[(races_data["Username"] == target_username) & (races_data["Active"].isin(["TRUE", "1", "1.0"]))].copy()
     if user_races.empty:
@@ -541,7 +536,7 @@ def display_career_history(target_username):
         if dist_races.empty: continue
         
         found_any = True
-        st.markdown(f"### 🏆 {dist} Season-by-Season PRs")
+        st.markdown(f"### {dist} Season-by-Season PRs")
         
         idx = dist_races.groupby("Season")["Time_Sec"].idxmin()
         prs = dist_races.loc[idx].sort_values("Season")
@@ -623,46 +618,61 @@ def plot_athlete_progress(user_races):
     df = df.sort_values("Date_Obj")
     df["Time_Min"] = df["Time_Sec"] / 60.0  
     
-    fig = px.line(df, x="Date_Obj", y="Time_Min", markers=True, text="Meet_Name", title="📈 Current Season 5K Progression", hover_data={"Date_Obj": "|%b %d, %Y", "Time_Min": False, "Total_Time": True, "Meet_Name": False})
+    fig = px.line(df, x="Date_Obj", y="Time_Min", markers=True, text="Meet_Name", title="Current Season 5K Progression", hover_data={"Date_Obj": "|%b %d, %Y", "Time_Min": False, "Total_Time": True, "Meet_Name": False})
     fig.update_traces(textposition="top center", line_color=THEMES[st.session_state["theme"]]["line"], line_width=3, marker_size=8)
-    # Notice: autorange="reversed" has been REMOVED here. Faster times drop visually!
     fig.update_yaxes(title="Finish Time (Minutes)")
     fig.update_xaxes(title="Race Date")
     fig.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"], margin=dict(t=50, b=20, l=20, r=20))
     st.plotly_chart(fig, use_container_width=True)
     st.markdown("---")
 
-def display_athlete_races(target_username, target_season):
-    user_races = races_data[(races_data["Username"] == target_username) & (races_data["Active"].isin(["TRUE", "1", "1.0"])) & (races_data["Season"] == target_season)].copy()
-    if not user_races.empty:
-        user_races["Time_Sec"] = user_races["Total_Time"].apply(time_to_seconds)
-        user_races = user_races[user_races["Time_Sec"] > 0] 
-        user_races["Date_Obj"] = pd.to_datetime(user_races["Date"], errors='coerce')
-        user_races = user_races.sort_values(by="Date_Obj", ascending=True)
+def display_athlete_races(username, season):
+    st.subheader(f"Race Results: {season}")
+    u_races = races_data[(races_data["Username"] == username) & (races_data["Active"].isin(["TRUE", "1", "1.0"])) & (races_data["Season"] == season)].copy()
+    
+    if u_races.empty:
+        st.info("No races recorded for this season.")
+        return
+
+    # Keep essential columns and calculate time
+    u_races["Time_Sec"] = u_races["Total_Time"].apply(time_to_seconds)
+    plot_athlete_progress(u_races)
+    
+    display_df = u_races[["Date", "Meet_Name", "Distance", "Mile_1", "Mile_2", "Total_Time", "Time_Sec"]].copy()
+    
+    # Calculate True Average Pace
+    def calc_avg_pace(row):
+        if pd.isna(row.get("Total_Time")) or str(row.get("Total_Time")).strip() == "": return ""
+        try:
+            dist = 3.10686 if str(row["Distance"]).upper() == "5K" else 2.0
+            avg_sec = row["Time_Sec"] / dist
+            minutes = int(avg_sec // 60)
+            seconds = int(avg_sec % 60)
+            return f"{minutes}:{seconds:02d}"
+        except Exception:
+            return ""
+
+    display_df["Avg_Pace"] = display_df.apply(calc_avg_pace, axis=1)
+
+    display_df = display_df.rename(columns={
+        "Meet_Name": "Meet",
+        "Mile_1": "Mile 1",
+        "Mile_2": "Mile 2",
+        "Total_Time": "Finish Time",
+        "Avg_Pace": "Avg Pace"
+    })
+    
+    for dist in display_df["Distance"].unique():
+        st.subheader(f"{dist} Races")
+        dist_races = display_df[display_df["Distance"] == dist].copy()
         
-        plot_athlete_progress(user_races)
-        
-        def calculate_avg_pace(row):
-            distance_mi = 3.10686 if str(row["Distance"]).upper() == "5K" else 2.0
-            return seconds_to_time(row["Time_Sec"] / distance_mi)
-        def calculate_kick(row):
-            m1_sec = time_to_seconds(row["Mile_1"])
-            m2_sec = time_to_seconds(row["Mile_2"])
-            return seconds_to_time(row["Time_Sec"] - (m1_sec + m2_sec))
+        if str(dist).upper() == "5K":
+            clean_table = dist_races[["Date", "Meet", "Distance", "Mile 1", "Mile 2", "Finish Time", "Avg Pace"]]
+        else:
+            clean_table = dist_races[["Date", "Meet", "Distance", "Mile 1", "Finish Time", "Avg Pace"]]
             
-        user_races["Avg_Pace"] = user_races.apply(calculate_avg_pace, axis=1)
-        user_races["Final_Kick"] = user_races.apply(calculate_kick, axis=1)
-        user_races["Date"] = user_races["Date_Obj"].dt.strftime('%m/%d/%Y').fillna("Unknown")
-        
-        for dist in user_races["Distance"].unique():
-            st.subheader(f"{dist} Races")
-            dist_races = user_races[user_races["Distance"] == dist].copy()
-            display_cols = ["Date", "Meet_Name", "Race_Name", "Mile_1", "Mile_2", "Final_Kick", "Total_Time", "Avg_Pace"] if str(dist).upper() == "5K" else ["Date", "Meet_Name", "Race_Name", "Mile_1", "Final_Kick", "Total_Time", "Avg_Pace"]
-            clean_table = dist_races[display_cols].rename(columns={"Meet_Name": "Meet", "Race_Name": "Race", "Mile_1": "Mile 1", "Mile_2": "Mile 2", "Final_Kick": "Final Kick", "Total_Time": "Total Time", "Avg_Pace": "Avg Pace"})
-            st.dataframe(clean_table, hide_index=True, use_container_width=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-    else:
-        st.info("No active race data found for this season.")
+        st.dataframe(clean_table, hide_index=True, use_container_width=True)
+        st.markdown("<br>", unsafe_allow_html=True)
 
 def display_athlete_workouts(target_username, target_season):
     user_workouts = workouts_data[(workouts_data["Username"] == target_username) & (workouts_data["Season"] == target_season)].copy()
@@ -680,7 +690,7 @@ def display_athlete_workouts(target_username, target_season):
     
     present_w = user_workouts[user_workouts["Status"] == "Present"]
     
-    tab_log, tab_spread, tab_trend = st.tabs(["📋 Workout Log", "🎯 Specific Session Variance", "📈 Specific Workout Trends"])
+    tab_log, tab_spread, tab_trend = st.tabs(["Workout Log", "Specific Session Variance", "Specific Workout Trends"])
     
     with tab_log:
         st.markdown("### Master Workout Log")
@@ -695,8 +705,10 @@ def display_athlete_workouts(target_username, target_season):
         if present_w.empty:
             st.info("No completed workouts found to analyze.")
         else:
-            w_opts = {idx: f"{row['Date_Formatted']} | {row['Workout_Type']} ({row['Rep_Distance']})" for idx, row in present_w.iterrows()}
-            selected_w_idx = st.selectbox("Select a Workout to Analyze:", options=list(w_opts.keys()), format_func=lambda x: w_opts[x])
+            col_w1, col_w2 = st.columns([1, 2])
+            with col_w1:
+                w_opts = {idx: f"{row['Date_Formatted']} | {row['Workout_Type']} ({row['Rep_Distance']})" for idx, row in present_w.iterrows()}
+                selected_w_idx = st.selectbox("Select a Workout to Analyze:", options=list(w_opts.keys()), format_func=lambda x: w_opts[x])
             
             w_row = present_w.loc[selected_w_idx]
             raw_splits = [s.strip() for s in str(w_row["Splits"]).split(",") if s.strip()]
@@ -715,7 +727,6 @@ def display_athlete_workouts(target_username, target_season):
                 
                 fig = px.scatter(gdf, x="Rep Number", y="Split Time", title="Interval Pacing Variance", hover_data={"Split Time": False, "Formatted": True})
                 fig.update_traces(marker=dict(size=14, color=THEMES[st.session_state["theme"]]["line"], line=dict(width=2, color='DarkSlateGrey')))
-                # Removed reversed autorange here too so faster times plot lower
                 fig.update_yaxes(title="Split Time")
                 fig.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"])
                 st.plotly_chart(fig, use_container_width=True)
@@ -730,7 +741,9 @@ def display_athlete_workouts(target_username, target_season):
             st.info("No completed workouts found to analyze.")
         else:
             unique_combos = present_w["Combo"].unique().tolist()
-            sel_combo = st.selectbox("Select Specific Workout to Compare:", unique_combos)
+            col_t1, col_t2 = st.columns([1, 2])
+            with col_t1:
+                sel_combo = st.selectbox("Select Specific Workout to Compare:", unique_combos)
             
             type_w = present_w[present_w["Combo"] == sel_combo].sort_values("Date_Obj")
             trend_data = []
@@ -749,7 +762,6 @@ def display_athlete_workouts(target_username, target_season):
                 
                 fig2 = px.line(tdf, x="Date", y="Avg_Min", markers=True, title=f"Average Pace Over Time: {sel_combo}", hover_data={"Date": "|%b %d", "Avg_Min": False, "Formatted": True})
                 fig2.update_traces(line_color=THEMES[st.session_state["theme"]]["line"], line_width=3, marker_size=10)
-                # Removed reversed autorange here too so faster times plot lower
                 fig2.update_yaxes(title="Average Pace")
                 fig2.update_layout(template=THEMES[st.session_state["theme"]]["plotly_template"])
                 st.plotly_chart(fig2, use_container_width=True)
@@ -760,7 +772,6 @@ def display_athlete_workouts(target_username, target_season):
 # --- 6. LOGIN & SECURITY PAGES ---
 # ==========================================
 def login_page():
-    # Wrap in columns to prevent wide-screen stretching
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
         st.title("MCXC Team Dashboard")
@@ -800,6 +811,7 @@ def password_reset_page():
                     st.cache_data.clear()
                     st.session_state["first_login"] = False
                     st.rerun()
+
 # ==========================================
 # --- 7. HOME PAGE ROUTER (DASHBOARD) ---
 # ==========================================
@@ -824,13 +836,11 @@ def home_page():
         with tab1:
             st.subheader("Athlete Lookup")
             
-            # 1. Update Columns to include the Status Filter
             col_filter1, col_filter2, col_filter3 = st.columns([1, 1, 1])
             filter_status = col_filter1.selectbox("Filter by Status:", ["Active", "Archived", "All"])
             filter_gender = col_filter2.selectbox("Filter by Gender:", ["All", "Male", "Female"])
             filter_grade = col_filter3.selectbox("Filter by Grade:", ["All", "9th", "10th", "11th", "12th", "Middle School"])
             
-            # 2. Grab Athletes based on Status
             base_athletes = roster_data[roster_data["Role"].str.upper() == "ATHLETE"].copy()
             if filter_status == "Active":
                 base_athletes = base_athletes[base_athletes["Active_Clean"].isin(["TRUE", "1", "1.0"])]
@@ -839,14 +849,10 @@ def home_page():
                 
             base_athletes["Grade"] = base_athletes.get("Grad_Year", "Unknown").apply(get_grade_level)
             
-            # 3. Apply Gender and Grade Filters
             if filter_gender != "All": base_athletes = base_athletes[base_athletes["Gender"].str.title() == filter_gender]
             if filter_grade != "All": base_athletes = base_athletes[base_athletes["Grade"] == filter_grade]
             
-            # 4. Sort Alphabetically by Last Name
-            base_athletes = base_athletes.sort_values(by="Last_Name")
-            
-            # 5. Format the display string (Last Name, First Name - Grade)
+            base_athletes = base_athletes.sort_values(by=["Last_Name", "First_Name"])
             athlete_dict = {row["Username"]: f"{row['Last_Name']}, {row['First_Name']} - {row['Grade']}" for _, row in base_athletes.iterrows()}
             
             if not athlete_dict: 
@@ -859,9 +865,8 @@ def home_page():
                 if selected_username: 
                     st.markdown("---")
                     
-                    # 6. Display the beautiful header with Grade
                     target_student = base_athletes[base_athletes["Username"] == selected_username].iloc[0]
-                    st.markdown(f"### 🏃 {target_student['First_Name']} {target_student['Last_Name']} ({target_student['Grade']})")
+                    st.markdown(f"### {target_student['First_Name']} {target_student['Last_Name']} ({target_student['Grade']})")
                     
                     u_races = races_data[races_data["Username"] == selected_username]
                     u_works = workouts_data[workouts_data["Username"] == selected_username]
@@ -934,7 +939,9 @@ def home_page():
                 edit_dict = {row["Username"]: f"{row['First_Name']} {row['Last_Name']} ({row.get('Role', '')})" for _, row in active_athletes.iterrows()}
                 if not edit_dict: st.info("No active members to edit.")
                 else:
-                    user_to_edit = st.selectbox("Select Member to Edit:", options=list(edit_dict.keys()), format_func=lambda x: edit_dict[x])
+                    col_e1, col_e2 = st.columns([1, 1])
+                    with col_e1:
+                        user_to_edit = st.selectbox("Select Member to Edit:", options=list(edit_dict.keys()), format_func=lambda x: edit_dict[x])
                     if user_to_edit:
                         target_row = roster_data[roster_data["Username"] == user_to_edit].iloc[0]
                         with st.form("edit_member_form"):
@@ -976,7 +983,9 @@ def home_page():
                     archive_dict = {row["Username"]: f"{row['First_Name']} {row['Last_Name']}" for _, row in active_athletes.iterrows()}
                     if not archive_dict: st.info("No active members to archive.")
                     else:
-                        user_to_archive = st.selectbox("Select Member to Archive:", options=list(archive_dict.keys()), format_func=lambda x: archive_dict[x])
+                        c_a1, c_a2 = st.columns([1, 2])
+                        with c_a1: 
+                            user_to_archive = st.selectbox("Select Member to Archive:", options=list(archive_dict.keys()), format_func=lambda x: archive_dict[x])
                         if st.button("Archive Member"):
                             user_idx = roster_data.index[roster_data['Username'] == user_to_archive].tolist()[0]
                             roster_data.at[user_idx, 'Active'] = "FALSE"
@@ -989,7 +998,9 @@ def home_page():
                     restore_dict = {row["Username"]: f"{row['First_Name']} {row['Last_Name']}" for _, row in inactive_athletes.iterrows()}
                     if not restore_dict: st.info("There are no archived members to restore.")
                     else:
-                        user_to_restore = st.selectbox("Select Member to Restore:", options=list(restore_dict.keys()), format_func=lambda x: restore_dict[x])
+                        c_r1, c_r2 = st.columns([1, 2])
+                        with c_r1: 
+                            user_to_restore = st.selectbox("Select Member to Restore:", options=list(restore_dict.keys()), format_func=lambda x: restore_dict[x])
                         if st.button("Restore Member"):
                             user_idx = roster_data.index[roster_data['Username'] == user_to_restore].tolist()[0]
                             roster_data.at[user_idx, 'Active'] = "TRUE"
@@ -1032,7 +1043,7 @@ def home_page():
                             st.success("Pace Chart updated!")
                             st.cache_data.clear()
                         except Exception:
-                            st.error("⚠️ **Missing Tab:** Open your Google Sheet, click the '+' at the bottom to add a new tab, name it exactly **VDOT**, and try again.")
+                            st.error("Missing Tab: Open your Google Sheet, click the '+' at the bottom to add a new tab, name it exactly **VDOT**, and try again.")
                         
                 with edit_tab2:
                     st.markdown("**Editable Rest Cycles**")
@@ -1043,7 +1054,7 @@ def home_page():
                             st.success("Rest Cycles updated!")
                             st.cache_data.clear()
                         except Exception:
-                            st.error("⚠️ **Missing Tab:** Open your Google Sheet, click the '+' at the bottom to add a new tab, name it exactly **Rest**, and try again.")
+                            st.error("Missing Tab: Open your Google Sheet, click the '+' at the bottom to add a new tab, name it exactly **Rest**, and try again.")
             
             elif de_type == "Archive Specific Meet":
                 st.subheader("Archive a Single Meet")
@@ -1057,7 +1068,8 @@ def home_page():
                 else:
                     meet_options = {f"{row['Meet_Name']}|{row['Date']}": f"{pd.to_datetime(row['Date'], errors='coerce').strftime('%m/%d/%Y')} | {row['Meet_Name']}" for _, row in active_meets.iterrows()}
                     with st.form("archive_meet_form"):
-                        meet_to_archive = st.selectbox("Select Meet", options=list(meet_options.keys()), format_func=lambda x: meet_options[x])
+                        col_arc1, col_arc2 = st.columns([1, 1])
+                        with col_arc1: meet_to_archive = st.selectbox("Select Meet", options=list(meet_options.keys()), format_func=lambda x: meet_options[x])
                         if st.form_submit_button("Archive Meet"):
                             m_name, m_date = meet_to_archive.split("|")
                             mask = (races_data["Meet_Name"] == m_name) & (races_data["Date"] == m_date)
@@ -1102,7 +1114,7 @@ def home_page():
 
             elif de_type == "Race Results":
                 st.subheader("Race Data Entry")
-                st.markdown("Select an existing meet to enter times in bulk. *(Note: To create a new meet, go to the **Meet Setup & Printables** tab!)*")
+                st.markdown("Select an existing meet to enter times in bulk.")
 
                 active_races = races_data[races_data["Active"].isin(["TRUE", "1", "1.0"])]
                 existing_meets = active_races["Meet_Name"].dropna().unique().tolist()
@@ -1126,7 +1138,7 @@ def home_page():
                     un_opts = {row["Username"]: f"{row['First_Name']} {row['Last_Name']}" for _, row in unassigned.sort_values(by="Last_Name").iterrows()}
 
                     if un_opts:
-                        with st.expander("➕ Add Walk-On / Missing Runners to this Race"):
+                        with st.expander("Add Walk-On / Missing Runners to this Race"):
                             add_runners = st.multiselect("Select Runners:", options=list(un_opts.keys()), format_func=lambda x: un_opts[x])
                             if st.button("Add to Race Roster"):
                                 date_val = target_rows["Date"].iloc[0] if not target_rows.empty else pd.to_datetime("today").strftime("%Y-%m-%d")
@@ -1310,7 +1322,9 @@ def home_page():
                         if not workout_options:
                             st.info("No valid workouts found to edit.")
                         else:
-                            selected_workout_key = st.selectbox("Select Workout to Edit:", options=list(workout_options.keys()), format_func=lambda x: workout_options[x])
+                            col_w1, col_w2 = st.columns([1, 1])
+                            with col_w1:
+                                selected_workout_key = st.selectbox("Select Workout to Edit:", options=list(workout_options.keys()), format_func=lambda x: workout_options[x])
                             
                             old_date, old_type = selected_workout_key.split("|")
                             target_rows = workouts_data[(workouts_data["Date"] == old_date) & (workouts_data["Workout_Type"] == old_type)].copy()
@@ -1406,7 +1420,7 @@ def home_page():
             show_rankings_tab()
             
         with tab5:
-            st.subheader("🖨️ Meet Setup & Printables")
+            st.subheader("Meet Setup & Printables")
             print_action = st.radio("Select Tool:", ["Attendance Sheet", "Create New Meet / Print Sheet", "Re-Print Existing Meet"], horizontal=True)
             st.markdown("---")
             
@@ -1445,7 +1459,7 @@ def home_page():
                     
                     final_html = wrap_html_for_print(f"{p_gender} Attendance", html, is_attendance=True)
                     st.success("Your printable sheet is ready! Download the HTML file and print it.")
-                    st.download_button(label="📥 Download Printable HTML Sheet", data=final_html, file_name=f"{p_gender}_Attendance.html", mime="text/html")
+                    st.download_button(label="Download Printable HTML Sheet", data=final_html, file_name=f"{p_gender}_Attendance.html", mime="text/html")
 
             elif print_action == "Create New Meet / Print Sheet":
                 st.markdown("Build your race entries here to instantly generate a printable clipboard sheet AND save the pending roster to the database for ultra-fast post-race data entry.")
@@ -1539,11 +1553,14 @@ def home_page():
                             
                         final_html = wrap_html_for_print(f"{p_meet} Split Sheet", html)
                         st.success(f"Successfully created '{p_meet}'! You can now download the sheet or go to 'Data Entry' to input times.")
-                        st.download_button(label="📥 Download Printable HTML Sheet", data=final_html, file_name=f"{p_meet.replace(' ', '_')}_Sheet.html", mime="text/html")
+                        st.download_button(label="Download Printable HTML Sheet", data=final_html, file_name=f"{p_meet.replace(' ', '_')}_Sheet.html", mime="text/html")
                         
             elif print_action == "Re-Print Existing Meet":
                 active_meets = races_data[races_data["Active"].isin(["TRUE", "1", "1.0"])]["Meet_Name"].dropna().unique().tolist()
-                p_meet = st.selectbox("Select Existing Meet to Print", ["-- Select Meet --"] + active_meets)
+                
+                col_p1, col_p2 = st.columns([1, 1])
+                with col_p1:
+                    p_meet = st.selectbox("Select Existing Meet to Print", ["-- Select Meet --"] + active_meets)
                 
                 if p_meet != "-- Select Meet --":
                     if st.button("Generate Print Sheet", type="primary"):
@@ -1585,10 +1602,10 @@ def home_page():
                         
                         final_html = wrap_html_for_print(f"{p_meet} Split Sheet", html)
                         st.success("Your printable sheet is ready!")
-                        st.download_button(label="📥 Download Printable HTML Sheet", data=final_html, file_name=f"{p_meet.replace(' ', '_')}_Sheet.html", mime="text/html")
+                        st.download_button(label="Download Printable HTML Sheet", data=final_html, file_name=f"{p_meet.replace(' ', '_')}_Sheet.html", mime="text/html")
 
         with tab6:
-            st.subheader("📚 Manage Team Documents")
+            st.subheader("Manage Team Documents")
             st.info("Paste the 'Publish to Web' link of your Google Docs below. They will be beautifully embedded on every athlete's dashboard. (To get this link: Open your Google Doc -> File -> Share -> Publish to Web -> Copy Link)")
             edited_docs = st.data_editor(docs_data, num_rows="dynamic", use_container_width=True)
             if st.button("💾 Save Documents", type="primary"):
@@ -1598,7 +1615,7 @@ def home_page():
                     st.cache_data.clear()
                     st.rerun()
                 except Exception:
-                    st.error("⚠️ **Missing Tab:** Open your Google Sheet, click the '+' at the bottom to add a new tab, name it exactly **Documents**, and try saving again.")
+                    st.error("Missing Tab: Open your Google Sheet, click the '+' at the bottom to add a new tab, name it exactly **Documents**, and try saving again.")
             
             st.markdown("---")
             display_team_resources()
@@ -1619,7 +1636,9 @@ def home_page():
             athlete_seasons = sorted(list(set(u_races["Season"].tolist() + u_works["Season"].tolist())), reverse=True)
             if not athlete_seasons: athlete_seasons = [CURRENT_SEASON]
             
-            sel_season = st.selectbox("View Season:", athlete_seasons, key="athlete_dash_season")
+            col_s1, col_s2 = st.columns([1, 3])
+            with col_s1:
+                sel_season = st.selectbox("View Season:", athlete_seasons, key="athlete_dash_season")
             st.markdown("---")
             
             user_races = u_races[(u_races["Active"].isin(["TRUE", "1", "1.0"])) & (u_races["Season"] == sel_season)].copy()

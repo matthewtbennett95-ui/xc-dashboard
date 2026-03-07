@@ -248,23 +248,121 @@ def wrap_html_for_print(title, body_content, is_attendance=False):
     return f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>{title}</title>
 <style>
-    body {{ font-family: Arial, sans-serif; padding: 10px; margin: 0; color: #000; }}
+    /* Modern UI Variables applied for Print */
+    :root {{
+        --border-color: #cbd5e1; 
+        --text-main: #1e293b; 
+        --text-muted: #64748b;
+        --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        --mcxc-crimson: #8B2331;
+    }}
+    
+    body {{ 
+        font-family: var(--font-family); 
+        padding: 20px; 
+        margin: 0; 
+        color: var(--text-main); 
+        background-color: #ffffff;
+    }}
+    
     @page {{ margin: 0.5in; {page_settings} }}
-    table {{ width: 100%; border-collapse: collapse; margin-bottom: 15px; page-break-inside: auto; }}
-    tr {{ page-break-inside: avoid; page-break-after: auto; }}
-    th, td {{ border: 1px solid #000; padding: 3px 5px; text-align: left; font-size: 11px; }}
-    th {{ background-color: #f2f2f2; font-weight: bold; font-size: 12px; }}
-    h2 {{ margin: 5px 0 10px 0; font-size: 18px; text-align: center; font-weight: bold; }}
-    h3 {{ margin: 5px 0; font-size: 14px; background-color: #e2e8f0; padding: 4px; border: 1px solid #000; border-bottom: none; }}
-    .print-btn {{ padding: 12px 24px; font-size: 16px; cursor: pointer; background: #8B2331; color: white; border: none; border-radius: 4px; font-weight: bold; margin-bottom: 10px; }}
-    @media print {{ .no-print {{ display: none !important; }} body {{ padding: 0; }} * {{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }} }}
-</style></head><body>
-    <div class="no-print" style="text-align: center; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-        <button class="print-btn" onclick="window.print()">Click Here to Print / Save as PDF</button>
-        <p style="color: #666; font-size: 13px; margin: 0;"><strong>Pro Tip:</strong> For large rosters, set your printer "Scale" to <i>Fit to Page</i>.</p>
-    </div>{body_content}
+    
+    /* Clean, Modern Typography */
+    h2 {{ 
+        margin: 0 0 10px 0; 
+        font-size: 22px; 
+        font-weight: 700; 
+        text-align: center; 
+        color: var(--text-main);
+        letter-spacing: -0.5px;
+    }}
+    
+    h3 {{ 
+        margin: 15px 0 0 0; 
+        font-size: 14px; 
+        font-weight: 600; 
+        background-color: #f8fafc; 
+        padding: 10px 15px; 
+        border: 1px solid var(--border-color); 
+        border-radius: 8px 8px 0 0;
+        border-bottom: none;
+        color: var(--text-main);
+    }}
+    
+    /* Table Styling inspired by the modern aesthetic */
+    table {{ 
+        width: 100%; 
+        border-collapse: collapse; 
+        margin-bottom: 25px; 
+        page-break-inside: auto; 
+    }}
+    
+    tr {{ 
+        page-break-inside: avoid; 
+        page-break-after: auto; 
+    }}
+    
+    th, td {{ 
+        padding: 10px 12px; 
+        border: 1px solid var(--border-color); 
+        text-align: left; 
+        font-size: 12px; 
+    }}
+    
+    th {{ 
+        color: var(--text-muted); 
+        font-weight: 600; 
+        text-transform: uppercase; 
+        letter-spacing: 1px; 
+        font-size: 11px; 
+        background: #f8fafc;
+    }}
+    
+    /* Modern Print Button Styling */
+    .print-btn {{ 
+        background: var(--mcxc-crimson); 
+        color: #ffffff; 
+        border: none; 
+        padding: 12px 24px; 
+        border-radius: 6px; 
+        font-size: 14px; 
+        font-weight: 600; 
+        cursor: pointer; 
+        transition: all 0.2s; 
+        text-transform: uppercase; 
+        letter-spacing: 0.5px; 
+        box-shadow: 0 4px 6px -1px rgba(139, 35, 49, 0.3);
+        margin-bottom: 10px;
+    }}
+    
+    .print-btn:hover {{ 
+        filter: brightness(1.1); 
+        transform: translateY(-1px); 
+    }}
+    
+    .no-print-container {{
+        text-align: center; 
+        margin-bottom: 30px; 
+        padding: 20px; 
+        background: #f0f4f8; 
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
+    }}
+    
+    /* Print-specific overrides to ensure colors show up */
+    @media print {{ 
+        .no-print {{ display: none !important; }} 
+        body {{ padding: 0; }} 
+        * {{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }} 
+    }}
+</style>
+</head><body>
+    <div class="no-print no-print-container">
+        <button class="print-btn" onclick="window.print()">🖨️ Click Here to Print / Save as PDF</button>
+        <p style="color: var(--text-muted); font-size: 13px; margin: 10px 0 0 0;"><strong>Pro Tip:</strong> For large rosters, set your printer "Scale" to <i>Fit to Page</i>.</p>
+    </div>
+    {body_content}
 </body></html>"""
-
 # ==========================================
 # --- 3. DATABASE CONNECTION & CLEANUP ---
 # ==========================================

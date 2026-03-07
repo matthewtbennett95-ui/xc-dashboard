@@ -10,7 +10,11 @@ from streamlit_gsheets import GSheetsConnection
 # ==========================================
 # --- 1. APP SETUP & VISUAL THEMES ---
 # ==========================================
-st.set_page_config(page_title="MCXC Team Dashboard", layout="wide")
+st.set_page_config(
+    page_title="MCXC Team Dashboard", 
+    layout="wide",
+    page_icon="mcxc_logo.png"  # Tells the phone to use this as the app icon!
+)
 
 # This hides the Streamlit "Made with Streamlit" footer and the top hamburger menu
 # to give it a cleaner "Native App" feel.

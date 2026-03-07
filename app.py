@@ -738,42 +738,46 @@ def display_athlete_workouts(target_username, target_season):
 # --- 6. LOGIN & SECURITY PAGES ---
 # ==========================================
 def login_page():
-    st.title("MCXC Team Dashboard")
-    st.markdown("Please log in to access your training data.")
-    with st.form("login_form"):
-        username = st.text_input("Username", autocomplete="off")
-        password = st.text_input("Password", type="password", autocomplete="new-password")
-        if st.form_submit_button("Log In"):
-            user_row = roster_data[roster_data["Username"] == username]
-            if not user_row.empty:
-                is_active = str(user_row.iloc[0].get("Active", "TRUE")).strip().upper() in ["TRUE", "1", "1.0"]
-                if not is_active: st.error("This account is no longer active.")
-                elif password == str(user_row.iloc[0]["Password"]):
-                    st.session_state.update({"logged_in": True, "username": username, "first_name": user_row.iloc[0]["First_Name"], "last_name": user_row.iloc[0]["Last_Name"], "role": user_row.iloc[0]["Role"]})
-                    st.session_state["first_login"] = str(user_row.iloc[0]["First_Login"]).strip().upper() in ["TRUE", "1", "1.0"]
-                    st.rerun()
-                else: st.error("Incorrect password.")
-            else: st.error("Username not found.")
+    # Wrap in columns to prevent wide-screen stretching
+    col1, col2, col3 = st.columns([1, 1.5, 1])
+    with col2:
+        st.title("MCXC Team Dashboard")
+        st.markdown("Please log in to access your training data.")
+        with st.form("login_form"):
+            username = st.text_input("Username", autocomplete="off")
+            password = st.text_input("Password", type="password", autocomplete="new-password")
+            if st.form_submit_button("Log In", use_container_width=True):
+                user_row = roster_data[roster_data["Username"] == username]
+                if not user_row.empty:
+                    is_active = str(user_row.iloc[0].get("Active", "TRUE")).strip().upper() in ["TRUE", "1", "1.0"]
+                    if not is_active: st.error("This account is no longer active.")
+                    elif password == str(user_row.iloc[0]["Password"]):
+                        st.session_state.update({"logged_in": True, "username": username, "first_name": user_row.iloc[0]["First_Name"], "last_name": user_row.iloc[0]["Last_Name"], "role": user_row.iloc[0]["Role"]})
+                        st.session_state["first_login"] = str(user_row.iloc[0]["First_Login"]).strip().upper() in ["TRUE", "1", "1.0"]
+                        st.rerun()
+                    else: st.error("Incorrect password.")
+                else: st.error("Username not found.")
 
 def password_reset_page():
-    st.title("Welcome to the Team")
-    st.markdown("Please create a new, secure password to continue.")
-    with st.form("reset_password_form"):
-        new_password = st.text_input("New Password", type="password", autocomplete="new-password")
-        confirm_password = st.text_input("Confirm New Password", type="password", autocomplete="new-password")
-        if st.form_submit_button("Update Password"):
-            if len(new_password) < 4: st.error("Password must be at least 4 characters long.")
-            elif new_password != confirm_password: st.error("Passwords do not match.")
-            else:
-                user_idx = roster_data.index[roster_data['Username'] == st.session_state['username']].tolist()[0]
-                roster_data.at[user_idx, 'Password'] = new_password
-                roster_data.at[user_idx, 'First_Login'] = "FALSE"
-                push_data = roster_data.drop(columns=["Active_Clean"]) if "Active_Clean" in roster_data.columns else roster_data
-                with st.spinner("Updating account..."): conn.update(worksheet="Roster", data=push_data)
-                st.cache_data.clear()
-                st.session_state["first_login"] = False
-                st.rerun()
-
+    col1, col2, col3 = st.columns([1, 1.5, 1])
+    with col2:
+        st.title("Welcome to the Team")
+        st.markdown("Please create a new, secure password to continue.")
+        with st.form("reset_password_form"):
+            new_password = st.text_input("New Password", type="password", autocomplete="new-password")
+            confirm_password = st.text_input("Confirm New Password", type="password", autocomplete="new-password")
+            if st.form_submit_button("Update Password", use_container_width=True):
+                if len(new_password) < 4: st.error("Password must be at least 4 characters long.")
+                elif new_password != confirm_password: st.error("Passwords do not match.")
+                else:
+                    user_idx = roster_data.index[roster_data['Username'] == st.session_state['username']].tolist()[0]
+                    roster_data.at[user_idx, 'Password'] = new_password
+                    roster_data.at[user_idx, 'First_Login'] = "FALSE"
+                    push_data = roster_data.drop(columns=["Active_Clean"]) if "Active_Clean" in roster_data.columns else roster_data
+                    with st.spinner("Updating account..."): conn.update(worksheet="Roster", data=push_data)
+                    st.cache_data.clear()
+                    st.session_state["first_login"] = False
+                    st.rerun()
 # ==========================================
 # --- 7. HOME PAGE ROUTER (DASHBOARD) ---
 # ==========================================
@@ -973,17 +977,23 @@ def home_page():
                     st.markdown("**Editable Pace Chart**")
                     edited_vdot = st.data_editor(vdot_data, num_rows="dynamic", use_container_width=True)
                     if st.button("💾 Save Pace Chart", type="primary"):
-                        with st.spinner("Updating database..."): conn.update(worksheet="VDOT", data=edited_vdot)
-                        st.success("Pace Chart updated!")
-                        st.cache_data.clear()
+                        try:
+                            with st.spinner("Updating database..."): conn.update(worksheet="VDOT", data=edited_vdot)
+                            st.success("Pace Chart updated!")
+                            st.cache_data.clear()
+                        except Exception:
+                            st.error("⚠️ **Missing Tab:** Open your Google Sheet, click the '+' at the bottom to add a new tab, name it exactly **VDOT**, and try again.")
                         
                 with edit_tab2:
                     st.markdown("**Editable Rest Cycles**")
                     edited_rest = st.data_editor(rest_data, num_rows="dynamic", use_container_width=True)
                     if st.button("💾 Save Rest Cycles", type="primary"):
-                        with st.spinner("Updating database..."): conn.update(worksheet="Rest", data=edited_rest)
-                        st.success("Rest Cycles updated!")
-                        st.cache_data.clear()
+                        try:
+                            with st.spinner("Updating database..."): conn.update(worksheet="Rest", data=edited_rest)
+                            st.success("Rest Cycles updated!")
+                            st.cache_data.clear()
+                        except Exception:
+                            st.error("⚠️ **Missing Tab:** Open your Google Sheet, click the '+' at the bottom to add a new tab, name it exactly **Rest**, and try again.")
             
             elif de_type == "Archive Specific Meet":
                 st.subheader("Archive a Single Meet")
@@ -1532,10 +1542,13 @@ def home_page():
             st.info("Paste the 'Publish to Web' link of your Google Docs below. They will be beautifully embedded on every athlete's dashboard. (To get this link: Open your Google Doc -> File -> Share -> Publish to Web -> Copy Link)")
             edited_docs = st.data_editor(docs_data, num_rows="dynamic", use_container_width=True)
             if st.button("💾 Save Documents", type="primary"):
-                with st.spinner("Saving documents..."): conn.update(worksheet="Documents", data=edited_docs)
-                st.success("Documents updated successfully!")
-                st.cache_data.clear()
-                st.rerun()
+                try:
+                    with st.spinner("Saving documents..."): conn.update(worksheet="Documents", data=edited_docs)
+                    st.success("Documents updated successfully!")
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception:
+                    st.error("⚠️ **Missing Tab:** Open your Google Sheet, click the '+' at the bottom to add a new tab, name it exactly **Documents**, and try saving again.")
             
             st.markdown("---")
             display_team_resources()
